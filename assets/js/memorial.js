@@ -117,6 +117,14 @@
       if (lastFocus) lastFocus.focus();
     };
     items.forEach(function (it, i) { it.addEventListener('click', function () { open(i); }); });
+    // фото внутри биографии открывают то же фото галереи (без дублей в просмотре)
+    var galleryBtns = $$('.gallery .gallery__item button');
+    $$('[data-lb-go]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var g = galleryBtns[+b.getAttribute('data-lb-go')];
+        if (g) open(items.indexOf(g));
+      });
+    });
     $('.lb__close', lb).addEventListener('click', close);
     $('.lb__prev', lb).addEventListener('click', function () { show(idx - 1); });
     $('.lb__next', lb).addEventListener('click', function () { show(idx + 1); });
@@ -142,6 +150,70 @@
       else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) close();
       x0 = null;
     });
+  }
+
+  /* ---------- Семейное древо: линии родства ---------- */
+  $$('[data-tree]').forEach(function (tree) {
+    var svg = $('.tree__lines', tree);
+    var links = (svg.getAttribute('data-links') || '').split(';').filter(Boolean).map(function (x) {
+      var p = x.split(':'); return { child: p[0], parents: p[1].split(',') };
+    });
+    var node = function (k) { return $('[data-node="' + k + '"]', tree); };
+    var draw = function () {
+      var box = tree.getBoundingClientRect(), d = '';
+      var rel = function (el) { var r = el.getBoundingClientRect(); return { x: r.left - box.left + r.width / 2, top: r.top - box.top, bottom: r.bottom - box.top }; };
+      links.forEach(function (l) {
+        var c = node(l.child); if (!c) return;
+        var cp = rel(c);
+        var ps = l.parents.map(node).filter(Boolean).map(rel);
+        if (!ps.length) return;
+        var py = Math.max.apply(null, ps.map(function (p) { return p.bottom; }));
+        var mid = py + (cp.top - py) / 2;
+        ps.forEach(function (p) { d += 'M' + p.x + ' ' + p.bottom + 'V' + mid; });
+        var xs = ps.map(function (p) { return p.x; }).concat([cp.x]);
+        d += 'M' + Math.min.apply(null, xs) + ' ' + mid + 'H' + Math.max.apply(null, xs);
+        d += 'M' + cp.x + ' ' + mid + 'V' + cp.top;
+      });
+      svg.innerHTML = '<path d="' + d + '"/>';
+    };
+    draw();
+    window.addEventListener('resize', draw);
+    $$('img', tree).forEach(function (im) { if (!im.complete) im.addEventListener('load', draw); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+  });
+
+  /* ---------- Заявка: проверка и отправка в WhatsApp (сервера пока нет) ---------- */
+  var form = $('#order-form');
+  if (form) {
+    var fName = $('#of-name', form), fPhone = $('#of-phone', form), fWho = $('#of-who', form), fAgree = $('#of-agree', form);
+    var setErr = function (input, errId, bad) {
+      input.setAttribute('aria-invalid', bad ? 'true' : 'false');
+      if (bad) input.setAttribute('aria-describedby', errId); else input.removeAttribute('aria-describedby');
+      $('#' + errId).hidden = !bad;
+    };
+    var digits = function (v) { return v.replace(/\D/g, ''); };
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var badName = fName.value.trim().length < 2;
+      var d = digits(fPhone.value), badPhone = d.length < 10 || d.length > 11;
+      var badAgree = !fAgree.checked;
+      setErr(fName, 'of-name-err', badName);
+      setErr(fPhone, 'of-phone-err', badPhone);
+      $('#of-agree-err').hidden = !badAgree;
+      var first = badName ? fName : badPhone ? fPhone : badAgree ? fAgree : null;
+      if (first) { first.focus(); return; }
+      var text = 'Здравствуйте! Хочу заказать страницу памяти.\nИмя: ' + fName.value.trim() + '\nТелефон: ' + fPhone.value.trim() +
+        (fWho.value.trim() ? '\nО ком: ' + fWho.value.trim() : '');
+      var url = form.getAttribute('data-wa') + '?text=' + encodeURIComponent(text);
+      var ok = $('.h-form__ok', form);
+      ok.hidden = false;
+      ok.innerHTML = 'Спасибо! Открываем WhatsApp с готовым сообщением — нажмите «Отправить». Если не открылось, <a href="' + url + '" target="_blank" rel="noopener">нажмите здесь</a>.';
+      window.open(url, '_blank', 'noopener');
+    });
+    // ошибка снимается сразу, как только поле заполнено верно
+    fName.addEventListener('input', function () { if (fName.getAttribute('aria-invalid') === 'true' && fName.value.trim().length >= 2) setErr(fName, 'of-name-err', false); });
+    fPhone.addEventListener('input', function () { var n = digits(fPhone.value).length; if (fPhone.getAttribute('aria-invalid') === 'true' && n >= 10 && n <= 11) setErr(fPhone, 'of-phone-err', false); });
+    fAgree.addEventListener('change', function () { if (fAgree.checked) $('#of-agree-err').hidden = true; });
   }
 
   /* ---------- Каталог: поиск по ФИО ---------- */
