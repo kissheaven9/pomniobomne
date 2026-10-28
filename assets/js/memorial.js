@@ -33,6 +33,14 @@
     });
   });
 
+  /* ---------- Копирование (номер для MAX) ---------- */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-copy]');
+    if (!b) return;
+    var v = b.getAttribute('data-copy'), msg = b.getAttribute('data-copy-msg') || 'Скопировано';
+    copy(v).then(function () { toast(msg); }, function () { toast(v); });
+  });
+
   /* ---------- Вкладки: подсветка текущего раздела ---------- */
   var tabs = $$('.tabs a');
   if (tabs.length && 'IntersectionObserver' in window) {

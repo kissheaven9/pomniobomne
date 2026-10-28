@@ -267,10 +267,10 @@
           field('f-born', 'Дата рождения', 'inputmode="numeric" placeholder="ДД.ММ.ГГГГ" maxlength="10"', 'Если точная дата неизвестна — только год') +
           field('f-died', 'Дата смерти', 'inputmode="numeric" placeholder="ДД.ММ.ГГГГ" maxlength="10"', 'Если точная дата неизвестна — только год') +
         '</div>' +
-        '<label class="check"><input type="checkbox" id="f-ok"><span>Я родственник умершего или действую с согласия родственников и имею право публиковать эти фото и сведения</span></label>' +
+        '<label class="check"><input type="checkbox" id="f-ok"><span>Я родственник умершего или действую с согласия родственников, имею право публиковать эти фото и сведения и даю <a href="' + BASE + '/soglasie-publikaciya/" target="_blank">согласие на их публикацию</a></span></label>' +
         '<p class="field__err" id="f-ok-err" hidden>Без этого подтверждения страницу создать нельзя</p>' +
-        '<label class="check"><input type="checkbox" id="f-pd"><span>Принимаю <a href="' + BASE + '/politic/" target="_blank">политику конфиденциальности</a></span></label>' +
-        '<p class="field__err" id="f-pd-err" hidden>Нужно согласие с политикой</p>' +
+        '<label class="check"><input type="checkbox" id="f-pd"><span>Даю <a href="' + BASE + '/soglasie/" target="_blank">согласие на обработку моих персональных данных</a>, с <a href="' + BASE + '/politic/" target="_blank">Политикой</a> ознакомлен(а)</span></label>' +
+        '<p class="field__err" id="f-pd-err" hidden>Нужно согласие на обработку персональных данных</p>' +
         '<button class="btn btn--solid cr-next" type="submit">Создать страницу</button>' +
       '</form>');
     var up = $('#up'), upf = $('#upf');
@@ -291,7 +291,7 @@
       chk('f-died', ds && !dp, 'Формат: ДД.ММ.ГГГГ или ГГГГ');
       if (bp && dp && !$('#f-died-err').textContent.trim()) chk('f-died', dp.y < bp.y, 'Дата смерти раньше даты рождения');
       chk('f-ok', !$('#f-ok').checked, 'Без этого подтверждения страницу создать нельзя');
-      chk('f-pd', !$('#f-pd').checked, 'Нужно согласие с политикой');
+      chk('f-pd', !$('#f-pd').checked, 'Нужно согласие на обработку персональных данных');
       if (bad) { bad.focus(); return; }
       var ln = $('#f-last').value.trim();
       var p = {
@@ -300,7 +300,7 @@
         lastName: ln, firstName: $('#f-first').value.trim(), patronymic: $('#f-patr').value.trim(),
         born: bs, died: ds, epitaph: '', portrait: draft.photo,
         bio: [{ title: '', text: '' }], photos: [], videos: [], burial: { text: '', coords: '' }, relatives: [],
-        consent: { at: new Date().toISOString(), text: 'Родственник или согласие родственников; право публиковать фото и сведения. Политика ПДн принята.' }
+        consent: { at: new Date().toISOString(), publication: 'soglasie-publikaciya, ред. 28.10.2026', processing: 'soglasie, ред. 28.10.2026' }
       };
       store.put(p).then(function () { location.hash = '#/edit/' + encodeURIComponent(p.id); toast('Страница создана — теперь расскажите о человеке'); });
     });
@@ -353,7 +353,8 @@
       : lockBox('Видео');
     var relsUI = ext
       ? (p.relatives || []).map(function (r, i) { return '<div class="cr-row cr-row--2"><input data-rn="' + i + '" value="' + esc(r.name) + '" placeholder="ФИО" aria-label="ФИО родственника"><input data-rr="' + i + '" value="' + esc(r.relation) + '" placeholder="Кем приходится: сын, жена…" aria-label="Кем приходится"><button type="button" class="cr-del" data-delrel="' + i + '" aria-label="Удалить">' + ICON.x + '</button></div>'; }).join('') +
-        '<button type="button" class="btn" id="addrel">' + ICON.plus + 'Добавить родственника</button>'
+        '<button type="button" class="btn" id="addrel">' + ICON.plus + 'Добавить родственника</button>' +
+        '<p class="field__hint">Указывайте умерших родственников или тех, кто согласен на публикацию своего имени.</p>'
       : lockBox('Родственники и семейное древо');
 
     var plan = ext
@@ -474,7 +475,8 @@
   function msgButtons(text) {
     return '<div class="cr-modal__btns"><a class="btn btn--solid" href="' + esc(msgLink('wa', text)) + '" target="_blank" rel="noopener">Написать в WhatsApp</a>' +
       '<a class="btn" href="' + esc(CFG.tg) + '" target="_blank" rel="noopener">Telegram</a>' +
-      (CFG.max ? '<a class="btn" href="' + esc(CFG.max) + '" target="_blank" rel="noopener">MAX</a>' : '') + '</div>';
+      (CFG.max ? '<a class="btn" href="' + esc(CFG.max) + '" target="_blank" rel="noopener">MAX</a>'
+        : CFG.maxPhone ? '<button type="button" class="btn" data-copy="' + esc(CFG.maxPhone) + '" data-copy-msg="Номер ' + esc(CFG.maxPhone) + ' скопирован. В MAX: «Новый чат» → вставьте номер">MAX</button>' : '') + '</div>';
   }
 
   function openUpgrade() {

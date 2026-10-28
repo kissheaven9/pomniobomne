@@ -470,6 +470,15 @@ a.tree__node:hover { border-color: var(--bronze); box-shadow: var(--shadow); }
 .demo-bar { background: var(--ink); color: #f1e7da; font-size: 14px; padding: 10px 0; }
 .demo-bar a { color: #f1d6bd; }
 
+/* правовые документы */
+.legal__nav { font-size: 14px; color: var(--ink-soft); margin: -8px 0 28px; }
+.legal__nav a { color: var(--bronze); }
+.legal ul { margin: 0 0 1.15em; padding-left: 22px; }
+.legal li { margin-bottom: 8px; line-height: 1.7; }
+.foot__max { all: unset; cursor: pointer; color: #f1e7da; }
+.foot__max:hover { text-decoration: underline; }
+.foot__max:focus-visible { outline: 2px solid #f1e7da; }
+
 /* ---------- Подвал ---------- */
 .foot { background: #2c2a28; color: #d9d1c7; padding: 40px 0 32px; font-size: 14px; line-height: 1.6; margin-top: 56px; }
 .foot__grid { display: grid; gap: 24px; }
