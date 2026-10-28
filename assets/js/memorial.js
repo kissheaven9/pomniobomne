@@ -33,6 +33,12 @@
     });
   });
 
+  /* ---------- QR-код страницы ---------- */
+  $$('img[data-qr]').forEach(function (im) {
+    if (!window.qrcode) return;
+    try { var q = window.qrcode(0, 'M'); q.addData(im.getAttribute('data-qr')); q.make(); im.src = q.createDataURL(6, 2); } catch (e) {}
+  });
+
   /* ---------- Копирование (номер для MAX) ---------- */
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-copy]');
@@ -234,7 +240,7 @@
     var run = function () {
       var v = norm(q.value), n = 0;
       cards.forEach(function (c) { var hit = !v || v.split(' ').every(function (w) { return c.getAttribute('data-name').indexOf(w) !== -1; }); c.hidden = !hit; if (hit) n++; });
-      count.textContent = (v ? 'Найдено: ' : 'Всего: ') + n + ' ' + plural(n);
+      count.textContent = v ? 'Найдено: ' + n + ' ' + plural(n) : '';   // общий счётчик не показываем (решение Ольги)
       empty.hidden = n !== 0;
     };
     q.addEventListener('input', run);

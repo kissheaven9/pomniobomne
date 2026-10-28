@@ -112,7 +112,7 @@
     url = String(url || '').trim(); var m;
     if ((m = url.match(/rutube\.ru\/(?:video|play\/embed)\/([0-9a-f]{32})/i))) return { src: 'https://rutube.ru/play/embed/' + m[1] + '?autoplay=1', thumb: 'https://rutube.ru/api/video/' + m[1] + '/thumbnail/?redirect=1' };
     if ((m = url.match(/(?:vk\.com|vkvideo\.ru)\/video(-?\d+)_(\d+)/))) return { src: 'https://vk.com/video_ext.php?oid=' + m[1] + '&id=' + m[2] + '&autoplay=1', thumb: '' };
-    if ((m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/))) return { src: 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1', thumb: 'https://i.ytimg.com/vi/' + m[1] + '/hqdefault.jpg' };
+    // YouTube не принимаем — только российские видеохостинги (решение Ольги 28.10)
     return null;
   }
   function placeLinks(b) {
@@ -122,7 +122,7 @@
       var lat = m[1], lng = m[2];
       return { text: t, coords: lat + ', ' + lng, route: 'https://yandex.ru/maps/?rtext=~' + lat + ',' + lng + '&rtt=auto', open: 'https://yandex.ru/maps/?pt=' + lng + ',' + lat + '&z=16&l=map', embed: 'https://yandex.ru/map-widget/v1/?ll=' + lng + ',' + lat + '&z=15&pt=' + lng + ',' + lat + ',pm2rdm' };
     }
-    if (t.replace(/[\W_]/g, '').length >= 8) {
+    if (t.replace(/[\s.,;:-]/g, '').length >= 3) {
       var q = encodeURIComponent(t);
       return { text: t, coords: null, route: 'https://yandex.ru/maps/?text=' + q, open: 'https://yandex.ru/maps/?text=' + q, embed: 'https://yandex.ru/map-widget/v1/?text=' + q + '&z=13' };
     }
@@ -191,13 +191,16 @@
       h.push('</div></div></section>');
     }
     if (place) {
-      h.push('<section class="section" id="mesto"><div class="wrap"><h2 class="section__title">Место захоронения</h2><div class="place"><div>');
+      h.push('<section class="section" id="mesto"><div class="wrap place"><div><h2 class="section__title">Место захоронения</h2>');
       if (place.text) h.push('<p class="place__addr">' + esc(place.text) + '</p>');
       if (place.coords) h.push('<p class="place__coords">Координаты: ' + esc(place.coords) + '</p>');
       h.push('<div class="place__btns"><a class="btn btn--solid" href="' + esc(place.route) + '" target="_blank" rel="noopener">' + ICON.route + 'Построить маршрут</a></div></div>');
-      if (!opts.preview) h.push('<div class="place__map"><button type="button" data-embed="' + esc(place.embed) + '" aria-label="Карта места захоронения">Показать карту</button></div>');
-      h.push('</div></div></section>');
+      h.push('<div class="place__map"><iframe src="' + esc(place.embed) + '" title="Карта места захоронения" loading="lazy"></iframe></div>');
+      h.push('</div></section>');
     }
+    var qr = makeQR(pageUrl(p.id), 6);
+    if (qr) h.push('<section class="section" id="qr"><div class="wrap qr-sec"><div class="qr-sec__img"><img src="' + qr + '" alt="QR-код страницы памяти" width="160" height="160"></div>' +
+      '<div><h2 class="section__title">QR-код страницы</h2><p>Распечатайте или закажите именную табличку на памятник — по QR-коду откроется эта страница.</p></div></div></section>');
     return h.join('');
   }
 
@@ -348,8 +351,8 @@
         '<p class="field__hint">' + (p.photos || []).length + ' из ' + EXT_PHOTOS + '. Фото сжимаются автоматически.</p>'
       : lockBox('Галерея до ' + EXT_PHOTOS + ' фото');
     var videosUI = ext
-      ? (p.videos || []).map(function (v, i) { return '<div class="cr-row"><input data-vid="' + i + '" value="' + esc(v) + '" placeholder="Ссылка на Rutube, VK Видео или YouTube" aria-label="Ссылка на видео ' + (i + 1) + '"><button type="button" class="cr-del" data-delvid="' + i + '" aria-label="Удалить видео">' + ICON.x + '</button></div>'; }).join('') +
-        '<p class="field__err" id="vid-err" hidden>Не распознали ссылку. Подойдут Rutube, VK Видео, YouTube.</p><button type="button" class="btn" id="addvid">' + ICON.plus + 'Добавить видео</button>'
+      ? (p.videos || []).map(function (v, i) { return '<div class="cr-row"><input data-vid="' + i + '" value="' + esc(v) + '" placeholder="Ссылка на Rutube или VK Видео" aria-label="Ссылка на видео ' + (i + 1) + '"><button type="button" class="cr-del" data-delvid="' + i + '" aria-label="Удалить видео">' + ICON.x + '</button></div>'; }).join('') +
+        '<p class="field__err" id="vid-err" hidden>Не распознали ссылку. Подойдут Rutube и VK Видео.</p><button type="button" class="btn" id="addvid">' + ICON.plus + 'Добавить видео</button>'
       : lockBox('Видео');
     var relsUI = ext
       ? (p.relatives || []).map(function (r, i) { return '<div class="cr-row cr-row--2"><input data-rn="' + i + '" value="' + esc(r.name) + '" placeholder="ФИО" aria-label="ФИО родственника"><input data-rr="' + i + '" value="' + esc(r.relation) + '" placeholder="Кем приходится: сын, жена…" aria-label="Кем приходится"><button type="button" class="cr-del" data-delrel="' + i + '" aria-label="Удалить">' + ICON.x + '</button></div>'; }).join('') +
@@ -390,9 +393,22 @@
     updatePreview();
   }
 
+  var PV_TARGET = { 's-main': null, 's-bio': 'bio', 's-place': 'mesto', 's-photos': 'foto', 's-video': 'video', 's-rel': 'semya', 's-done': 'qr' };
+  var pvFocus = null;
+  function scrollPreview() {
+    var pv = $('#pv'); if (!pv || pvFocus === undefined) return;
+    var t = pvFocus && $('#pv #' + pvFocus);
+    var k = 0.7333;   // масштаб .cr-pv
+    pv.scrollTo({ top: t ? Math.max(0, t.offsetTop * k - 12) : 0, behavior: 'smooth' });
+  }
   function updatePreview() {
     var pv = $('#pv'); if (!pv) return;
+    // карту не перезагружаем на каждый символ: переносим уже открытый iframe, если адрес не менялся
+    var oldMap = $('#pv .place__map iframe');
     pv.innerHTML = '<div class="cr-pv">' + pageHTML(cur, { preview: true }) + '</div>';
+    var newMap = $('#pv .place__map iframe');
+    if (oldMap && newMap && oldMap.src === newMap.src) newMap.parentNode.replaceChild(oldMap, newMap);
+    if (pvFocus) { var t = $('#pv #' + pvFocus); if (t) pv.scrollTop = Math.max(0, t.offsetTop * 0.7333 - 12); }
     var q = makeQR(pageUrl(cur.id), 5); var qi = $('#qr'); if (qi && q) { qi.src = q; $('#qrdl').href = makeQR(pageUrl(cur.id), 12); }
   }
 
@@ -405,6 +421,12 @@
 
   function bindEditor() {
     var p = cur;
+    $$('.cr-sec').forEach(function (sec) {
+      sec.addEventListener('focusin', function () {
+        if (!(sec.id in PV_TARGET) || pvFocus === PV_TARGET[sec.id]) return;
+        pvFocus = PV_TARGET[sec.id]; scrollPreview();
+      });
+    });
     var live = function (sel, fn) { var el = $(sel); if (el) el.addEventListener('input', function () { fn(el.value); updatePreview(); save(); }); };
     live('#e-last', function (v) { p.lastName = v.trim(); $('.cr-title').textContent = fullName(p) || 'Новая страница'; });
     live('#e-first', function (v) { p.firstName = v.trim(); $('.cr-title').textContent = fullName(p) || 'Новая страница'; });
@@ -451,7 +473,10 @@
     // видео
     var av = $('#addvid'); if (av) av.addEventListener('click', function () { p.videos.push(''); save(true); renderEditor(); var n = $$('[data-vid]'); n[n.length - 1].focus(); });
     $$('[data-vid]').forEach(function (i) {
-      i.addEventListener('input', function () { p.videos[+i.getAttribute('data-vid')] = i.value.trim(); updatePreview(); save(); });
+      i.addEventListener('input', function () {
+        p.videos[+i.getAttribute('data-vid')] = i.value.trim(); updatePreview(); save();
+        if (!i.value.trim() || videoEmbed(i.value)) { $('#vid-err').hidden = true; i.setAttribute('aria-invalid', 'false'); }
+      });
       i.addEventListener('blur', function () { var bad = i.value.trim() && !videoEmbed(i.value); $('#vid-err').hidden = !bad; i.setAttribute('aria-invalid', bad ? 'true' : 'false'); });
     });
     $$('[data-delvid]').forEach(function (b) { b.addEventListener('click', function () { p.videos.splice(+b.getAttribute('data-delvid'), 1); save(true); renderEditor(); $('#s-video').scrollIntoView(); }); });
@@ -482,7 +507,7 @@
   function openUpgrade() {
     var p = cur;
     openModal('<h2 class="cr-modal__t">Расширенная страница — ' + PRICE_EXT + '</h2>' +
-      '<ul class="h-list"><li>' + ICON.check + '<span>Биография без ограничений, по главам</span></li><li>' + ICON.check + '<span>До ' + EXT_PHOTOS + ' фотографий</span></li><li>' + ICON.check + '<span>Видео с Rutube, VK Видео, YouTube</span></li><li>' + ICON.check + '<span>Родственники и семейное древо</span></li></ul>' +
+      '<ul class="h-list"><li>' + ICON.check + '<span>Биография без ограничений, по главам</span></li><li>' + ICON.check + '<span>До ' + EXT_PHOTOS + ' фотографий</span></li><li>' + ICON.check + '<span>Видео с Rutube и VK Видео</span></li><li>' + ICON.check + '<span>Родственники и семейное древо</span></li></ul>' +
       '<p>Разовая оплата, без подписки. Онлайн-оплата подключается — сейчас оформить можно через мессенджер, откроем расширенную вручную.</p>' +
       msgButtons('Здравствуйте! Хочу подключить расширенную страницу (' + PRICE_EXT + ') для: ' + fullName(p) + ', ' + span(p) + '.') +
       '<button type="button" class="linkbtn cr-demo-on" id="demo-on">Посмотреть возможности (демо, без оплаты)</button>');
