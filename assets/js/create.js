@@ -54,6 +54,76 @@
     del: function (id) { delete mem[id]; return tx('readwrite', function (s) { s['delete'](id); }).catch(function () {}); }
   };
 
+  /* ---------- сервер кабинета (если подключён) ---------- */
+  var API = CFG.api ? BASE + CFG.api : null;
+  function apiCall(method, path, body, raw) {
+    var o = { method: method, credentials: 'same-origin', headers: { 'X-Pomni': '1' } };
+    if (raw) { o.headers['Content-Type'] = 'application/octet-stream'; o.body = raw; }
+    else if (body !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(body); }
+    return fetch(API + path, o).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) { var e = new Error((j && j.error) || 'Ошибка ' + r.status); e.status = r.status; throw e; }
+        return j;
+      });
+    });
+  }
+  function dataUrlToBlob(d) {
+    var b = atob(d.split(',')[1]), a = new Uint8Array(b.length);
+    for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i);
+    return new Blob([a], { type: 'image/jpeg' });
+  }
+  var demoCode = null;
+  var auth = {
+    me: function () {
+      if (API) return apiCall('GET', '/me').then(function (r) { return r.email; }, function () { return null; });
+      try { return Promise.resolve(localStorage.getItem('pomni_demo_email')); } catch (e) { return Promise.resolve(null); }
+    },
+    request: function (email) {
+      if (API) return apiCall('POST', '/auth/request', { email: email });
+      demoCode = String(Math.floor(100000 + Math.random() * 900000));
+      return Promise.resolve({ demoCode: demoCode });
+    },
+    verify: function (email, code) {
+      if (API) return apiCall('POST', '/auth/verify', { email: email, code: code });
+      if (code.replace(/\D/g, '') !== demoCode) return Promise.reject(new Error('Неверный код'));
+      try { localStorage.setItem('pomni_demo_email', email); } catch (e) {}
+      return Promise.resolve({ email: email });
+    },
+    logout: function () {
+      if (API) return apiCall('POST', '/auth/logout', {});
+      try { localStorage.removeItem('pomni_demo_email'); } catch (e) {}
+      return Promise.resolve();
+    }
+  };
+  var EDITABLE = ['lastName', 'firstName', 'patronymic', 'born', 'died', 'epitaph', 'bio', 'burial', 'videos', 'relatives'];
+  var pages = {
+    all: function () { return API ? apiCall('GET', '/pages') : store.all(); },
+    get: function (id) { return API ? apiCall('GET', '/pages/' + id) : store.get(id); },
+    view: function (id) { return API ? apiCall('GET', '/public/' + id).catch(function () { return null; }) : store.get(id); },
+    create: function (p, portrait) {
+      if (!API) { p.portrait = portrait; return store.put(p).then(function () { return p; }); }
+      var body = { consent: p.consent }; EDITABLE.forEach(function (k) { body[k] = p[k]; });
+      return apiCall('POST', '/pages', body).then(function (np) {
+        return portrait ? apiCall('POST', '/pages/' + np.id + '/portrait', undefined, dataUrlToBlob(portrait)) : np;
+      });
+    },
+    save: function (p) {
+      if (!API) return store.put(p);
+      var body = {}; EDITABLE.forEach(function (k) { body[k] = p[k]; });
+      return apiCall('PATCH', '/pages/' + p.id, body);
+    },
+    upload: function (p, kind, dataUrl) {   // kind: portrait | photos
+      if (!API) { if (kind === 'portrait') p.portrait = dataUrl; else p.photos.push(dataUrl); return store.put(p).then(function () { return p; }); }
+      return apiCall('POST', '/pages/' + p.id + '/' + kind, undefined, dataUrlToBlob(dataUrl));
+    },
+    delPhoto: function (p, i) {
+      if (!API) { p.photos.splice(i, 1); return store.put(p).then(function () { return p; }); }
+      return apiCall('DELETE', '/pages/' + p.id + '/photos/' + p.photos[i].split('/').pop());
+    },
+    del: function (id) { return API ? apiCall('DELETE', '/pages/' + id) : store.del(id); }
+  };
+  function syncFromServer(np) { if (!API || !np || !cur) return; cur.portrait = np.portrait; cur.photos = np.photos || []; cur.plan = np.plan; cur.status = np.status; }
+
   /* ---------- утилиты ---------- */
   var toastEl, toastT;
   function toast(m) {
@@ -208,13 +278,15 @@
   function runView() {
     var app = $('#app');
     var id = new URLSearchParams(location.search).get('id');
-    store.get(id).then(function (p) {
+    pages.view(id).then(function (p) {
       if (!p) {
-        app.innerHTML = '<section class="section"><div class="wrap"><h1 class="section__title">Страница не найдена</h1><p>Пока страницы, созданные в конструкторе, сохраняются только в браузере, где их создали. <a href="' + BASE + '/sozdat/">Создать страницу</a></p></div></section>';
+        app.innerHTML = '<section class="section"><div class="wrap"><h1 class="section__title">Страница не найдена</h1><p>' + (API ? 'Страница удалена или снята с публикации.' : 'В демо-режиме страницы хранятся только в браузере, где их создали.') + ' <a href="' + BASE + '/sozdat/">Создать страницу</a></p></div></section>';
         return;
       }
       document.title = fullName(p) + ' (' + span(p) + ') — страница памяти';
-      app.innerHTML = '<div class="demo-bar"><div class="wrap">Эта страница сохранена в вашем браузере. <a href="' + BASE + '/sozdat/#/edit/' + encodeURIComponent(p.id) + '">Редактировать</a></div></div>' + pageHTML(p);
+      var bar = API ? (p.status === 'draft' ? '<div class="demo-bar"><div class="wrap">Черновик — видите только вы. <a href="' + BASE + '/kabinet/#/edit/' + encodeURIComponent(p.id) + '">Редактировать</a></div></div>' : '')
+        : '<div class="demo-bar"><div class="wrap">Демо: страница сохранена в вашем браузере. <a href="' + BASE + '/kabinet/#/edit/' + encodeURIComponent(p.id) + '">Редактировать</a></div></div>';
+      app.innerHTML = bar + pageHTML(p);
       var s = document.createElement('script'); s.src = BASE + '/assets/js/memorial.js?v=' + (CFG.v || '1'); document.body.appendChild(s);
     });
   }
@@ -222,19 +294,61 @@
   /* =================== /sozdat/ — конструктор =================== */
   var root, cur = null, saveT = null;
 
+  var IS_CABINET = false, ME = null;
   function route() {
     var h = location.hash.replace(/^#/, '') || '/';
     var m;
-    if ((m = h.match(/^\/edit\/(.+)$/))) return openEditor(decodeURIComponent(m[1]));
     if (h === '/new') return renderStep1();
-    store.all().then(function (list) { list.length ? renderMine(list) : renderStep1(); });
+    auth.me().then(function (email) {
+      ME = email;
+      if (!email && (IS_CABINET || /^\/edit\//.test(h) || API)) return renderLogin(route);
+      if ((m = h.match(/^\/edit\/(.+)$/))) return openEditor(decodeURIComponent(m[1]));
+      pages.all().then(function (list) { list.length || IS_CABINET ? renderMine(list) : renderStep1(); })
+        .catch(function (e) { if (e.status === 401) renderLogin(route); else shell('<p>' + esc(e.message) + '</p>'); });
+    });
+  }
+
+  /* ---------- вход по коду на почту ---------- */
+  function renderLogin(done, lead) {
+    shell('<div class="cr-login"><h1 class="cr-title">Личный кабинет</h1>' +
+      '<p class="cr-sub">' + (lead || 'Войдите, чтобы видеть и редактировать свои страницы памяти. Пароль не нужен — пришлём код на почту.') + '</p>' +
+      '<form class="cr-box" id="lg1" novalidate>' + field('lg-email', 'Электронная почта', 'type="email" autocomplete="email" inputmode="email" placeholder="name@mail.ru" required') +
+      '<button class="btn btn--solid cr-next" type="submit">Получить код</button></form></div>');
+    $('#lg-email').focus();
+    $('#lg1').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var email = $('#lg-email').value.trim().toLowerCase(), err = $('#lg-email-err');
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { err.hidden = false; err.textContent = 'Проверьте адрес почты'; $('#lg-email').focus(); return; }
+      var btn = $('#lg1 button'); btn.disabled = true; btn.textContent = 'Отправляем…';
+      auth.request(email).then(function (r) { renderCode(email, r, done); }, function (e) {
+        btn.disabled = false; btn.textContent = 'Получить код'; err.hidden = false; err.textContent = e.message;
+      });
+    });
+  }
+  function renderCode(email, r, done) {
+    var hint = r.demoCode ? '<p class="cr-democode">Демо-режим: письмо не отправляется. Ваш код: <b>' + r.demoCode + '</b>. В рабочей версии код придёт на почту.</p>'
+      : r.devCode ? '<p class="cr-democode">Тестовый сервер: код <b>' + r.devCode + '</b></p>' : '';
+    shell('<div class="cr-login"><h1 class="cr-title">Код из письма</h1><p class="cr-sub">Отправили 6-значный код на <b>' + esc(email) + '</b>. Код действует 10 минут.</p>' + hint +
+      '<form class="cr-box" id="lg2" novalidate>' + field('lg-code', 'Код', 'inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required') +
+      '<button class="btn btn--solid cr-next" type="submit">Войти</button>' +
+      '<button type="button" class="linkbtn" id="lg-back">Другая почта или новый код</button></form></div>');
+    $('#lg-code').focus();
+    $('#lg-back').addEventListener('click', function () { renderLogin(done); });
+    $('#lg2').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var code = $('#lg-code').value.replace(/\D/g, ''), err = $('#lg-code-err');
+      if (code.length !== 6) { err.hidden = false; err.textContent = 'Введите 6 цифр'; return; }
+      auth.verify(email, code).then(function () { ME = email; toast('Вы вошли'); done(); }, function (e) { err.hidden = false; err.textContent = e.message; $('#lg-code').select(); });
+    });
   }
 
   function shell(inner) { root.innerHTML = '<div class="wrap cr">' + inner + '</div>'; window.scrollTo(0, 0); }
 
   function renderMine(list) {
-    list.sort(function (a, b) { return (b.updated || '').localeCompare(a.updated || ''); });
-    shell('<div class="cr-head"><h1 class="cr-title">Мои страницы</h1><a class="btn btn--solid" href="#/new">' + ICON.plus + 'Создать новую</a></div>' +
+    list.sort(function (a, b) { return String(b.updated || '').localeCompare(String(a.updated || '')); });
+    shell('<div class="cr-head"><h1 class="cr-title">Личный кабинет</h1><a class="btn btn--solid" href="#/new">' + ICON.plus + 'Создать страницу</a></div>' +
+      (ME ? '<p class="cr-me">Вы вошли как <b>' + esc(ME) + '</b> · <button type="button" class="linkbtn" id="logout">Выйти</button></p>' : '') +
+      (list.length ? '<h2 class="cr-sec__t" style="margin:8px 0 14px">Мои страницы</h2>' : '<p class="cr-empty">Страниц пока нет. Создайте первую — это бесплатно.</p>') +
       demoNote() +
       '<div class="cr-mine">' + list.map(function (p) {
         return '<div class="cr-card"><span class="cr-card__img">' + (p.portrait ? '<img src="' + p.portrait + '" alt="">' : esc((p.lastName || '?').charAt(0))) + '</span>' +
@@ -242,10 +356,12 @@
           '<b>' + esc(fullName(p) || 'Без имени') + '</b><span>' + span(p) + '</span>' +
           '<div class="cr-card__btns"><a class="btn btn--solid" href="#/edit/' + encodeURIComponent(p.id) + '">Редактировать</a><a class="btn" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть</a></div></div></div>';
       }).join('') + '</div>');
+    var lo = $('#logout'); if (lo) lo.addEventListener('click', function () { auth.logout().then(function () { ME = null; toast('Вы вышли'); location.hash = '#/'; route(); }); });
   }
 
   function demoNote() {
-    return '<p class="cr-demo"><b>Как сохраняется страница.</b> Пока сайт работает без личного кабинета, страница хранится в этом браузере. Публикация для всех и вход по почте появятся при запуске — созданные страницы перенесём.</p>';
+    if (API) return '';
+    return '<p class="cr-demo"><b>Демо-режим.</b> Это предпросмотр сайта без сервера: вход и страницы сохраняются только в этом браузере. На рабочем сайте код придёт на почту, а страницы будут доступны с любого устройства.</p>';
   }
 
   function field(id, label, attrs, hint) {
@@ -301,11 +417,19 @@
         id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         plan: 'free', created: new Date().toISOString(),
         lastName: ln, firstName: $('#f-first').value.trim(), patronymic: $('#f-patr').value.trim(),
-        born: bs, died: ds, epitaph: '', portrait: draft.photo,
+        born: bs, died: ds, epitaph: '', portrait: null,
         bio: [{ title: '', text: '' }], photos: [], videos: [], burial: { text: '', coords: '' }, relatives: [],
         consent: { at: new Date().toISOString(), publication: 'soglasie-publikaciya, ред. 28.10.2026', processing: 'soglasie, ред. 28.10.2026' }
       };
-      store.put(p).then(function () { location.hash = '#/edit/' + encodeURIComponent(p.id); toast('Страница создана — теперь расскажите о человеке'); });
+      var create = function () {
+        var btn = $('.cr-next'); if (btn) { btn.disabled = true; btn.textContent = 'Создаём…'; }
+        pages.create(p, draft.photo).then(function (np) { location.hash = '#/edit/' + encodeURIComponent(np.id); toast('Страница создана — теперь расскажите о человеке'); },
+          function (e) { if (btn) { btn.disabled = false; btn.textContent = 'Создать страницу'; } toast(e.message); });
+      };
+      auth.me().then(function (email) {
+        if (email) return create();
+        renderLogin(create, 'Чтобы сохранить страницу и потом её редактировать, войдите по почте — пришлём код. Пароль не нужен.');
+      });
     });
   }
 
@@ -314,10 +438,11 @@
     'Семья: супруг(а), дети, внуки', 'Увлечения, любимые занятия, черты характера', 'Какие слова или привычки вспоминают родные?', 'Чему он(а) научил(а) близких?'];
 
   function openEditor(id) {
-    store.get(id).then(function (p) {
+    pages.get(id).then(function (p) {
       if (!p) { shell('<h1 class="cr-title">Страница не найдена</h1><p><a href="#/new">Создать новую</a></p>'); return; }
+      p.bio = p.bio && p.bio.length ? p.bio : [{ title: '', text: '' }]; p.photos = p.photos || []; p.videos = p.videos || []; p.relatives = p.relatives || []; p.burial = p.burial || { text: '', coords: '' };
       cur = p; renderEditor();
-    });
+    }, function (e) { if (e.status === 401) renderLogin(route); else shell('<h1 class="cr-title">Страница не найдена</h1><p><a href="#/">В кабинет</a></p>'); });
   }
 
   function lockBox(what) {
@@ -364,7 +489,7 @@
       ? '<div class="cr-plan cr-plan--ext"><span class="cr-tag cr-tag--ext">Расширенная</span><span>' + (p.demo ? 'Включена в демо-режиме, чтобы посмотреть возможности. Оплата — при запуске.' : 'Все возможности открыты.') + '</span></div>'
       : '<div class="cr-plan"><span class="cr-tag">Базовая · бесплатно</span><span>1 портрет и биография до ' + FREE_BIO + ' знаков.</span><button type="button" class="btn btn--solid" data-upgrade>Расширенная — ' + PRICE_EXT + '</button></div>';
 
-    shell('<a class="cr-back" href="#/">← Мои страницы</a>' +
+    shell('<a class="cr-back" href="' + BASE + '/kabinet/">← Личный кабинет</a>' +
       '<div class="cr-head"><h1 class="cr-title">' + esc(fullName(p) || 'Новая страница') + '</h1><span class="cr-saved" id="saved" aria-live="polite">Сохранено</span></div>' +
       plan +
       '<div class="cr-split"><div class="cr-form">' +
@@ -398,8 +523,7 @@
   function scrollPreview() {
     var pv = $('#pv'); if (!pv || pvFocus === undefined) return;
     var t = pvFocus && $('#pv #' + pvFocus);
-    var k = 0.7333;   // масштаб .cr-pv
-    pv.scrollTo({ top: t ? Math.max(0, t.offsetTop * k - 12) : 0, behavior: 'smooth' });
+    pv.scrollTo({ top: t ? Math.max(0, t.getBoundingClientRect().top - pv.getBoundingClientRect().top + pv.scrollTop - 12) : 0, behavior: 'smooth' });
   }
   function updatePreview() {
     var pv = $('#pv'); if (!pv) return;
@@ -408,14 +532,17 @@
     pv.innerHTML = '<div class="cr-pv">' + pageHTML(cur, { preview: true }) + '</div>';
     var newMap = $('#pv .place__map iframe');
     if (oldMap && newMap && oldMap.src === newMap.src) newMap.parentNode.replaceChild(oldMap, newMap);
-    if (pvFocus) { var t = $('#pv #' + pvFocus); if (t) pv.scrollTop = Math.max(0, t.offsetTop * 0.7333 - 12); }
+    if (pvFocus) { var t = $('#pv #' + pvFocus); if (t) pv.scrollTop = Math.max(0, t.getBoundingClientRect().top - pv.getBoundingClientRect().top + pv.scrollTop - 12); }
     var q = makeQR(pageUrl(cur.id), 5); var qi = $('#qr'); if (qi && q) { qi.src = q; $('#qrdl').href = makeQR(pageUrl(cur.id), 12); }
   }
 
   function save(now) {
     clearTimeout(saveT);
     var s = $('#saved'); if (s) s.textContent = 'Сохраняем…';
-    var go = function () { store.put(cur).then(function () { var e = $('#saved'); if (e) e.textContent = 'Сохранено'; }); };
+    var go = function () {
+      pages.save(cur).then(function () { var e = $('#saved'); if (e) e.textContent = 'Сохранено'; },
+        function (er) { var e = $('#saved'); if (e) e.textContent = 'Не сохранено'; toast(er.message); });
+    };
     if (now) go(); else saveT = setTimeout(go, 500);
   }
 
@@ -459,17 +586,21 @@
     var upf = $('#upf');
     upf.addEventListener('change', function () {
       var f = upf.files[0]; if (!f) return;
-      readPhoto(f, 1400).then(function (d) { p.portrait = d; save(true); renderEditor(); }).catch(function () { toast('Не удалось прочитать фото. Подойдёт JPG или PNG.'); });
+      readPhoto(f, 1400).then(function (d) { return pages.upload(p, 'portrait', d); })
+        .then(function (np) { syncFromServer(np); renderEditor(); }, function (e) { toast(e && e.message && e.message !== 'type' && e.message !== 'decode' ? e.message : 'Не удалось прочитать фото. Подойдёт JPG или PNG.'); });
     });
     // фото
     var phf = $('#phf');
     if (phf) phf.addEventListener('change', function () {
       var files = Array.prototype.slice.call(phf.files, 0, EXT_PHOTOS - p.photos.length);
       toast('Загружаем фото: ' + files.length);
-      files.reduce(function (pr, f) { return pr.then(function () { return readPhoto(f, 1600).then(function (d) { p.photos.push(d); }, function () {}); }); }, Promise.resolve())
-        .then(function () { save(true); renderEditor(); var s = $('#s-photos'); if (s) s.scrollIntoView(); });
+      files.reduce(function (pr, f) {
+        return pr.then(function () { return readPhoto(f, 1600).then(function (d) { return pages.upload(p, 'photos', d); }).then(syncFromServer, function (e) { if (e && e.message && e.message !== 'type') toast(e.message); }); });
+      }, Promise.resolve()).then(function () { renderEditor(); var s = $('#s-photos'); if (s) s.scrollIntoView(); });
     });
-    $$('[data-delph]').forEach(function (b) { b.addEventListener('click', function () { p.photos.splice(+b.getAttribute('data-delph'), 1); save(true); renderEditor(); $('#s-photos').scrollIntoView(); }); });
+    $$('[data-delph]').forEach(function (b) { b.addEventListener('click', function () {
+      pages.delPhoto(p, +b.getAttribute('data-delph')).then(function (np) { syncFromServer(np); renderEditor(); $('#s-photos').scrollIntoView(); }, function (e) { toast(e.message); });
+    }); });
     // видео
     var av = $('#addvid'); if (av) av.addEventListener('click', function () { p.videos.push(''); save(true); renderEditor(); var n = $$('[data-vid]'); n[n.length - 1].focus(); });
     $$('[data-vid]').forEach(function (i) {
@@ -493,7 +624,7 @@
     });
     $('#delpage').addEventListener('click', function () {
       if (!confirm('Удалить страницу «' + (fullName(p) || 'без имени') + '»? Это нельзя отменить.')) return;
-      store.del(p.id).then(function () { toast('Страница удалена'); location.hash = '#/'; });
+      pages.del(p.id).then(function () { toast('Страница удалена'); location.hash = '#/'; }, function (e) { toast(e.message); });
     });
   }
 
@@ -509,9 +640,9 @@
     openModal('<h2 class="cr-modal__t">Расширенная страница — ' + PRICE_EXT + '</h2>' +
       '<ul class="h-list"><li>' + ICON.check + '<span>Биография без ограничений, по главам</span></li><li>' + ICON.check + '<span>До ' + EXT_PHOTOS + ' фотографий</span></li><li>' + ICON.check + '<span>Видео с Rutube и VK Видео</span></li><li>' + ICON.check + '<span>Родственники и семейное древо</span></li></ul>' +
       '<p>Разовая оплата, без подписки. Онлайн-оплата подключается — сейчас оформить можно через мессенджер, откроем расширенную вручную.</p>' +
-      msgButtons('Здравствуйте! Хочу подключить расширенную страницу (' + PRICE_EXT + ') для: ' + fullName(p) + ', ' + span(p) + '.') +
-      '<button type="button" class="linkbtn cr-demo-on" id="demo-on">Посмотреть возможности (демо, без оплаты)</button>');
-    $('#demo-on').addEventListener('click', function () {
+      msgButtons('Здравствуйте! Хочу подключить расширенную страницу (' + PRICE_EXT + ') для: ' + fullName(p) + ', ' + span(p) + '. Номер страницы: ' + p.id + '.') +
+      (API ? '' : '<button type="button" class="linkbtn cr-demo-on" id="demo-on">Посмотреть возможности (демо, без оплаты)</button>'));
+    if ($('#demo-on')) $('#demo-on').addEventListener('click', function () {
       p.plan = 'extended'; p.demo = true;
       if (p.bio && p.bio.length === 1 && !p.bio[0].title) p.bio[0].title = '';
       save(true); closeModal(); renderEditor(); toast('Расширенные возможности включены (демо)');
@@ -542,6 +673,7 @@
   if ($('#app[data-view]')) { runView(); return; }
   root = $('#cr-root');
   if (!root) return;
+  IS_CABINET = root.hasAttribute('data-cabinet');
   window.addEventListener('hashchange', route);
   route();
 })();
