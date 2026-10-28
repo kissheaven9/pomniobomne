@@ -2,7 +2,7 @@
    Сервера пока нет: страницы хранятся в IndexedDB этого браузера (DEMO). Онлайн-оплата не подключена —
    расширенная оформляется через мессенджер, в демо её можно включить, чтобы посмотреть возможности.
    Тарифы (решение Ольги 28.10): базовая — бесплатно (1 фото, биография ≤ 500 знаков), расширенная — 2990 ₽,
-   QR-табличка — 2990 ₽ отдельно. */
+   изготовление именной QR-таблички под заказ — 2990 ₽ отдельно (услуга, не перепродажа). */
 (function () {
   'use strict';
   var BASE = (document.documentElement.getAttribute('data-base') || '');
@@ -382,7 +382,7 @@
           '<p>Ссылка на страницу и QR-код. QR можно распечатать или заказать готовую табличку.</p>' +
           '<div class="cr-done__btns"><a class="btn btn--solid" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a>' +
           '<a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png">Скачать QR-код</a>' +
-          '<button type="button" class="btn" id="plaque">Заказать табличку — ' + PRICE_PLAQUE + '</button></div>' +
+          '<button type="button" class="btn" id="plaque">Заказать именную табличку — ' + PRICE_PLAQUE + '</button></div>' +
           '<button type="button" class="linkbtn cr-delpage" id="delpage">Удалить страницу</button></div></div>') +
       '</div><aside class="cr-prev" aria-label="Предпросмотр"><div class="cr-phone"><div class="cr-phone__scr" id="pv"></div></div><p class="cr-prev__cap">Так страница выглядит на телефоне</p></aside></div>' +
       demoNote());
@@ -463,8 +463,8 @@
     // апгрейд, табличка, удаление
     $$('[data-upgrade]').forEach(function (b) { b.addEventListener('click', openUpgrade); });
     $('#plaque').addEventListener('click', function () {
-      openModal('<h2 class="cr-modal__t">QR-табличка — ' + PRICE_PLAQUE + '</h2><p>Табличка 6×6 см с QR-кодом этой страницы. Доставка СДЭК включена. Напишите нам — пришлём макет и реквизиты для оплаты.</p>' +
-        msgButtons('Здравствуйте! Хочу заказать QR-табличку (' + PRICE_PLAQUE + ') для страницы: ' + fullName(p) + ', ' + span(p) + '.'));
+      openModal('<h2 class="cr-modal__t">Именная QR-табличка — ' + PRICE_PLAQUE + '</h2><p>Изготовим под заказ табличку 6×6 см с уникальным QR-кодом этой страницы, проверим, упакуем и отправим СДЭК. Напишите нам — пришлём макет на согласование и ссылку на оплату.</p>' +
+        msgButtons('Здравствуйте! Хочу заказать изготовление именной QR-таблички (' + PRICE_PLAQUE + ') для страницы: ' + fullName(p) + ', ' + span(p) + '.'));
     });
     $('#delpage').addEventListener('click', function () {
       if (!confirm('Удалить страницу «' + (fullName(p) || 'без имени') + '»? Это нельзя отменить.')) return;
