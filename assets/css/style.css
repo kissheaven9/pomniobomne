@@ -710,6 +710,21 @@ div.cr-opt { display: block; cursor: default; }
 .cr-plq__video iframe { width: 100%; height: 100%; border: 0; }
 .cr-plq__text { margin: 0 0 10px; }
 
+/* родственники: поиск и привязка к страницам */
+.cr-rel { display: grid; gap: 6px; padding-bottom: 10px; border-bottom: 1px dashed var(--line); }
+.cr-rel__acts { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 14px; color: var(--ink-soft); }
+.cr-rel__linked { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 8px 10px; background: var(--cream); border-radius: var(--radius-sm); }
+.cr-rel__linked img, .cr-rel__linked > span { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; flex: none; display: grid; place-items: center; background: var(--bronze-soft); color: var(--bronze); font-weight: 700; }
+.cr-rel__linked > div { flex: 1; min-width: 0; }
+.cr-rel__linked a { color: var(--bronze); }
+.cr-rs { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 6px; max-height: 50vh; overflow: auto; }
+.cr-rs__item { all: unset; box-sizing: border-box; cursor: pointer; width: 100%; display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.cr-rs__item:hover, .cr-rs__item:focus-visible { border-color: var(--bronze); background: var(--cream); }
+.cr-rs__item img, .cr-rs__item > span { grid-row: 1 / span 2; width: 44px; height: 44px; border-radius: 8px; object-fit: cover; display: grid; place-items: center; background: var(--bronze-soft); color: var(--bronze); font-weight: 700; }
+.cr-rs__item small { color: var(--ink-soft); }
+.cr-rs__empty { font-size: 14px; color: var(--ink-soft); padding: 8px 2px; }
+.cr-relfrom { margin: -6px 0 16px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--cream); font-size: 14px; }
+
 /* поля форм (вход, конструктор) */
 .field { display: grid; gap: 6px; }
 .field label { font-size: 14px; font-weight: 500; }

@@ -269,7 +269,9 @@
       h.push('<section class="section" id="semya"><div class="wrap"><h2 class="section__title">Семья</h2><div class="people">');
       rels.forEach(function (r) {
         var tag = r.link ? 'a' : 'div', href = r.link ? ' href="' + esc(r.link) + '"' : '';
-        h.push('<' + tag + ' class="person"' + href + '><span class="person__img">' + esc(r.name.charAt(0)) + '</span><span><span class="person__name">' + esc(r.name) + '</span><br><span class="person__meta">' + esc(r.relation || '') + '</span></span></' + tag + '>');
+        var ph = r.photo ? '<img src="' + esc(r.photo) + '" alt="" loading="lazy">' : esc(r.name.charAt(0));
+        var meta = [r.relation, r.years].filter(Boolean).join(' · ');
+        h.push('<' + tag + ' class="person"' + href + '><span class="person__img">' + ph + '</span><span><span class="person__name">' + esc(r.name) + '</span><br><span class="person__meta">' + esc(meta) + '</span></span></' + tag + '>');
       });
       h.push('</div></div></section>');
     }
@@ -386,6 +388,7 @@
     var draft = { photo: null };
     shell('<a class="cr-back" href="' + BASE + '/">← На главную</a>' +
       '<h1 class="cr-title">Создать страницу памяти</h1><p class="cr-sub">Шаг 1 из 2 · Основное. Займёт пару минут — остальное можно добавить потом.</p>' +
+      (relFrom() ? '<p class="cr-relfrom">Создаёте страницу родственника для «' + esc(relFrom().fromName) + '» — после создания она сама привяжется к той странице.</p>' : '') +
       '<div class="cr-bar"><span style="width:50%"></span></div>' +
       '<form class="cr-box" id="s1" novalidate>' +
         '<div class="cr-s1">' +
@@ -437,7 +440,7 @@
       };
       var create = function () {
         var btn = $('.cr-next'); if (btn) { btn.disabled = true; btn.textContent = 'Создаём…'; }
-        pages.create(p, draft.photo).then(function (np) { location.hash = '#/edit/' + encodeURIComponent(np.id); toast('Страница создана — теперь расскажите о человеке'); },
+        pages.create(p, draft.photo).then(function (np) { return linkBack(np).then(function () { location.hash = '#/edit/' + encodeURIComponent(np.id); toast('Страница создана — теперь расскажите о человеке'); }); },
           function (e) { if (btn) { btn.disabled = false; btn.textContent = 'Создать страницу'; } toast(e.message); });
       };
       auth.me().then(function (email) {
@@ -445,6 +448,20 @@
         renderLogin(create, 'Чтобы сохранить страницу и потом её редактировать, войдите по почте — пришлём код. Пароль не нужен.');
       });
     });
+  }
+
+  function relFrom() { try { return JSON.parse(sessionStorage.getItem('pomni_rel_from') || 'null'); } catch (e) { return null; } }
+  // новая страница родственника → добавить ссылку на неё в исходную страницу
+  function linkBack(np) {
+    var rf = relFrom(); if (!rf) return Promise.resolve();
+    try { sessionStorage.removeItem('pomni_rel_from'); } catch (e) {}
+    return pages.get(rf.from).then(function (orig) {
+      if (!orig) return;
+      orig.relatives = orig.relatives || [];
+      var rel = { name: fullName(np), relation: rf.relation, link: BASE + '/stranica/?id=' + encodeURIComponent(np.id), photo: np.portrait || '', years: span(np) };
+      if (orig.relatives[rf.idx]) orig.relatives[rf.idx] = rel; else orig.relatives.push(rel);
+      return pages.save(orig).then(function () { toast('Страница привязана к «' + rf.fromName + '»'); });
+    }).catch(function () {});
   }
 
   /* ---------- редактор ---------- */
@@ -492,9 +509,14 @@
     var videosUI = note('Видео появится на странице в расширенной версии.') +
       (p.videos || []).map(function (v, i) { return '<div class="cr-row"><input data-vid="' + i + '" value="' + esc(v) + '" placeholder="Ссылка на Rutube или VK Видео" aria-label="Ссылка на видео ' + (i + 1) + '"><button type="button" class="cr-del" data-delvid="' + i + '" aria-label="Удалить видео">' + ICON.x + '</button></div>'; }).join('') +
       '<p class="field__err" id="vid-err" hidden>Не распознали ссылку. Подойдут Rutube и VK Видео.</p><button type="button" class="btn" id="addvid">' + ICON.plus + 'Добавить видео</button>';
-    var relsUI = (p.relatives || []).map(function (r, i) { return '<div class="cr-row cr-row--2"><input data-rn="' + i + '" value="' + esc(r.name) + '" placeholder="ФИО" aria-label="ФИО родственника"><input data-rr="' + i + '" value="' + esc(r.relation) + '" placeholder="Кем приходится: сын, жена…" aria-label="Кем приходится"><button type="button" class="cr-del" data-delrel="' + i + '" aria-label="Удалить">' + ICON.x + '</button></div>'; }).join('') +
+    var relsUI = (p.relatives || []).map(function (r, i) {
+      var linked = r.link ? '<div class="cr-rel__linked">' + (r.photo ? '<img src="' + esc(r.photo) + '" alt="">' : '<span>' + esc((r.name || '?').charAt(0)) + '</span>') +
+        '<div>Связано со страницей: <a href="' + esc(r.link) + '" target="_blank">' + esc(r.name) + (r.years ? ' · ' + esc(r.years) : '') + '</a></div><button type="button" class="linkbtn" data-unlink="' + i + '">Отвязать</button></div>'
+        : '<div class="cr-rel__acts"><button type="button" class="linkbtn" data-findrel="' + i + '">Найти на сайте</button><span>или</span><button type="button" class="linkbtn" data-newrel="' + i + '">Создать его страницу</button></div>';
+      return '<div class="cr-rel"><div class="cr-row cr-row--2"><input data-rn="' + i + '" value="' + esc(r.name) + '" placeholder="ФИО" aria-label="ФИО родственника"><input data-rr="' + i + '" value="' + esc(r.relation) + '" placeholder="Кем приходится: сын, жена…" aria-label="Кем приходится"><button type="button" class="cr-del" data-delrel="' + i + '" aria-label="Удалить">' + ICON.x + '</button></div>' + linked + '</div>';
+    }).join('') +
       '<button type="button" class="btn" id="addrel">' + ICON.plus + 'Добавить родственника</button>' +
-      '<p class="field__hint">Бесплатно. Указывайте умерших родственников или тех, кто согласен на публикацию своего имени.</p>';
+      '<p class="field__hint">Бесплатно. Если у родственника уже есть страница памяти — найдите её, и на странице появится ссылка на неё. Указывайте умерших родственников или тех, кто согласен на публикацию своего имени.</p>';
 
     shell('<a class="cr-back" href="' + BASE + '/kabinet/">← Личный кабинет</a>' +
       '<div class="cr-head"><h1 class="cr-title">' + esc(fullName(p) || 'Новая страница') + '</h1><span class="cr-saved" id="saved" aria-live="polite">' + (p.status === 'published' ? 'Опубликована · сохранено' : 'Черновик · сохранено') + '</span></div>' +
@@ -737,7 +759,54 @@
     $$('[data-rn]').forEach(function (i) { i.addEventListener('input', function () { p.relatives[+i.getAttribute('data-rn')].name = i.value; updatePreview(); save(); }); });
     $$('[data-rr]').forEach(function (i) { i.addEventListener('input', function () { p.relatives[+i.getAttribute('data-rr')].relation = i.value; updatePreview(); save(); }); });
     $$('[data-delrel]').forEach(function (b) { b.addEventListener('click', function () { p.relatives.splice(+b.getAttribute('data-delrel'), 1); save(true); renderEditor(); $('#s-rel').scrollIntoView(); }); });
+    $$('[data-unlink]').forEach(function (b) { b.addEventListener('click', function () { var r = p.relatives[+b.getAttribute('data-unlink')]; delete r.link; delete r.photo; delete r.years; save(true); renderEditor(); $('#s-rel').scrollIntoView(); }); });
+    $$('[data-findrel]').forEach(function (b) { b.addEventListener('click', function () { findRelative(+b.getAttribute('data-findrel')); }); });
+    $$('[data-newrel]').forEach(function (b) { b.addEventListener('click', function () {
+      var i = +b.getAttribute('data-newrel'), r = p.relatives[i];
+      try { sessionStorage.setItem('pomni_rel_from', JSON.stringify({ from: p.id, fromName: fullName(p), idx: i, relation: r.relation || '' })); } catch (e) {}
+      save(true); location.hash = '#/new';
+    }); });
     bindOrder(); drawQR();
+  }
+
+  // ---------- родственники: поиск среди страниц сайта ----------
+  var siteIndex = null;
+  function loadIndex() {
+    if (siteIndex) return Promise.resolve(siteIndex);
+    return fetch(BASE + '/assets/data/pages.json').then(function (r) { return r.json(); }).catch(function () { return []; })
+      .then(function (list) { siteIndex = list; return list; });
+  }
+  function norm(x) { return String(x || '').toLowerCase().replace(/ё/g, 'е'); }
+  function findRelative(i) {
+    var p = cur, r = p.relatives[i];
+    openModal('<h2 class="cr-modal__t">Найти страницу родственника</h2>' +
+      '<div class="field"><label for="rs-q">Фамилия, имя или отчество</label><input id="rs-q" autocomplete="off" value="' + esc(r.name || '') + '" placeholder="Например: Баталин"></div>' +
+      '<ul class="cr-rs" id="rs-list" aria-live="polite"></ul>');
+    var q = $('#rs-q'), list = $('#rs-list'), t = null;
+    var run = function () {
+      var words = norm(q.value).split(/\s+/).filter(Boolean);
+      if (!words.length) { list.innerHTML = '<li class="cr-rs__empty">Начните вводить ФИО</li>'; return; }
+      var hit = function (x) { var n = norm(x.name); return words.every(function (w) { return n.indexOf(w) !== -1; }); };
+      Promise.all([
+        loadIndex(),
+        pages.all().then(function (mine) { return (mine || []).filter(function (m) { return m.id !== p.id; }).map(function (m) { return { name: fullName(m), years: span(m), link: BASE + '/stranica/?id=' + encodeURIComponent(m.id), photo: m.portrait, mine: true }; }); }).catch(function () { return []; }),
+        API ? apiCall('GET', '/search?q=' + encodeURIComponent(q.value)).catch(function () { return []; }) : Promise.resolve([])
+      ]).then(function (res) {
+        var seen = {}, all = res[1].concat(res[2], res[0]).filter(function (x) { if (seen[x.link]) return false; seen[x.link] = 1; return hit(x); }).slice(0, 20);
+        list.innerHTML = all.length ? all.map(function (x, k) {
+          return '<li><button type="button" class="cr-rs__item" data-pick="' + k + '">' + (x.photo ? '<img src="' + esc(x.photo) + '" alt="">' : '<span>' + esc(x.name.charAt(0)) + '</span>') +
+            '<b>' + esc(x.name) + '</b><small>' + esc(x.years || '') + (x.mine ? ' · ваша страница' : '') + '</small></button></li>';
+        }).join('') : '<li class="cr-rs__empty">Не нашли. Можно <button type="button" class="linkbtn" id="rs-new">создать страницу этого родственника</button>.</li>';
+        $$('[data-pick]', list).forEach(function (b) { b.addEventListener('click', function () {
+          var x = all[+b.getAttribute('data-pick')];
+          r.name = x.name; r.link = x.link; r.photo = x.photo || ''; r.years = x.years || '';
+          save(true); closeModal(); renderEditor(); toast('Родственник связан со страницей'); var s = $('#s-rel'); if (s) s.scrollIntoView();
+        }); });
+        var nb = $('#rs-new'); if (nb) nb.addEventListener('click', function () { closeModal(); var b = $('[data-newrel="' + i + '"]'); if (b) b.click(); });
+      });
+    };
+    q.addEventListener('input', function () { clearTimeout(t); t = setTimeout(run, 200); });
+    q.focus(); run();
   }
 
   // не используется в новой логике — оставлено для совместимости ссылок data-upgrade
