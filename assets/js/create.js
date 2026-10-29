@@ -8,7 +8,7 @@
   var BASE = (document.documentElement.getAttribute('data-base') || '');
   var CFG = window.POMNI || {};
   var FREE_BIO = 500, EXT_PHOTOS = 200, EPITAPH_MAX = 140;
-  var PRICE_EXT = '2990 ₽', PRICE_PLAQUE = '2990 ₽';
+  var PRICE_EXT = '2990 ₽', PRICE_PLAQUE = '3990 ₽', SUM_EXT = 2990, SUM_PLAQUE = 3990;
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -142,6 +142,16 @@
     m = s.match(/^(\d{4})$/);
     return m ? { y: +m[1] } : null;
   }
+  function maskDate(el) {
+    var d = el.value.replace(/\D/g, '').slice(0, 8), out = d;
+    if (d.length > 4) out = d.slice(0, 2) + '.' + d.slice(2, 4) + '.' + d.slice(4);
+    else if (d.length > 2) out = d.slice(0, 2) + '.' + d.slice(2);
+    el.value = out;
+  }
+  function dateOnBlur(el) {   // «19.91» после ввода 4 цифр — это год 1991
+    var d = el.value.replace(/\D/g, '');
+    if (d.length === 4 && !parseDate(el.value)) el.value = d;
+  }
   function fmtDate(t) { return t ? (t.d ? t.d + ' ' + MONTHS[t.m - 1] + ' ' + t.y : String(t.y)) : '?'; }
   function age(b, d) {
     if (!b || !d || !b.d || !d.d) return null;
@@ -207,8 +217,8 @@
   function pageHTML(p, opts) {
     opts = opts || {};
     var b = parseDate(p.born), d = parseDate(p.died), a = age(b, d), g = gender(p), place = placeLinks(p.burial);
-    var ext = isExt(p), photos = ext ? (p.photos || []) : [], videos = ext ? (p.videos || []).map(videoEmbed).filter(Boolean) : [];
-    var rels = ext ? (p.relatives || []).filter(function (r) { return r.name; }) : [];
+    var ext = opts.as ? opts.as === 'ext' : isExt(p), photos = ext ? (p.photos || []) : [], videos = ext ? (p.videos || []).map(videoEmbed).filter(Boolean) : [];
+    var rels = (p.relatives || []).filter(function (r) { return r.name; });   // родственники — бесплатно
     var chapters = (p.bio || []).filter(function (c) { return (c.text || '').trim(); });
     if (!ext && chapters.length) chapters = [{ title: '', text: chapters.map(function (c) { return c.text; }).join('\n\n').slice(0, FREE_BIO) }];
     var h = [];
@@ -257,7 +267,10 @@
     }
     if (rels.length) {
       h.push('<section class="section" id="semya"><div class="wrap"><h2 class="section__title">Семья</h2><div class="people">');
-      rels.forEach(function (r) { h.push('<div class="person"><span class="person__img">' + esc(r.name.charAt(0)) + '</span><span><span class="person__name">' + esc(r.name) + '</span><br><span class="person__meta">' + esc(r.relation || '') + '</span></span></div>'); });
+      rels.forEach(function (r) {
+        var tag = r.link ? 'a' : 'div', href = r.link ? ' href="' + esc(r.link) + '"' : '';
+        h.push('<' + tag + ' class="person"' + href + '><span class="person__img">' + esc(r.name.charAt(0)) + '</span><span><span class="person__name">' + esc(r.name) + '</span><br><span class="person__meta">' + esc(r.relation || '') + '</span></span></' + tag + '>');
+      });
       h.push('</div></div></section>');
     }
     if (place) {
@@ -268,8 +281,8 @@
       h.push('<div class="place__map"><iframe src="' + esc(place.embed) + '" title="Карта места захоронения" loading="lazy"></iframe></div>');
       h.push('</div></section>');
     }
-    var qr = makeQR(pageUrl(p.id), 6);
-    if (qr) h.push('<section class="section" id="qr"><div class="wrap qr-sec"><div class="qr-sec__img"><img src="' + qr + '" alt="QR-код страницы памяти" width="160" height="160"></div>' +
+    var qr = window.heartQR ? window.heartQR(pageUrl(p.id)) : '';
+    if (qr) h.push('<section class="section" id="qr"><div class="wrap qr-sec"><div class="qr-sec__img">' + qr + '</div>' +
       '<div><h2 class="section__title">QR-код страницы</h2><p>Распечатайте или закажите именную табличку на памятник — по QR-коду откроется эта страница.</p></div></div></section>');
     return h.join('');
   }
@@ -299,6 +312,7 @@
     var h = location.hash.replace(/^#/, '') || '/';
     var m;
     if (h === '/new') return renderStep1();
+    if (/^\/paid\//.test(h)) { toast('Спасибо! Оплата прошла — страница опубликована'); location.hash = '#/'; return; }
     auth.me().then(function (email) {
       ME = email;
       if (!email && (IS_CABINET || /^\/edit\//.test(h) || API)) return renderLogin(route);
@@ -383,8 +397,8 @@
           '</div>' +
         '</div>' +
         '<div class="cr-grid2">' +
-          field('f-born', 'Дата рождения', 'inputmode="numeric" placeholder="ДД.ММ.ГГГГ" maxlength="10"', 'Если точная дата неизвестна — только год') +
-          field('f-died', 'Дата смерти', 'inputmode="numeric" placeholder="ДД.ММ.ГГГГ" maxlength="10"', 'Если точная дата неизвестна — только год') +
+          field('f-born', 'Дата рождения', 'inputmode="numeric" placeholder="ДД.ММ.ГГГГ" maxlength="10"', 'Просто цифры — точки появятся сами. Только год — 4 цифры') +
+          field('f-died', 'Дата смерти', 'inputmode="numeric" placeholder="ДД.ММ.ГГГГ" maxlength="10"', 'Просто цифры — точки появятся сами. Только год — 4 цифры') +
         '</div>' +
         '<label class="check"><input type="checkbox" id="f-ok"><span>Я родственник умершего или действую с согласия родственников, имею право публиковать эти фото и сведения и даю <a href="' + BASE + '/soglasie-publikaciya/" target="_blank">согласие на их публикацию</a></span></label>' +
         '<p class="field__err" id="f-ok-err" hidden>Без этого подтверждения страницу создать нельзя</p>' +
@@ -398,7 +412,7 @@
       readPhoto(f, 1400).then(function (d) { draft.photo = d; up.style.backgroundImage = 'url(' + d + ')'; up.classList.add('has'); })
         .catch(function () { toast('Не удалось прочитать фото. Подойдёт JPG или PNG.'); });
     });
-    $$('#f-born, #f-died').forEach(function (i) { i.addEventListener('input', function () { i.value = i.value.replace(/[^\d.]/g, ''); }); });
+    $$('#f-born, #f-died').forEach(function (i) { i.addEventListener('input', function () { maskDate(i); }); i.addEventListener('blur', function () { dateOnBlur(i); }); });
     $('#s1').addEventListener('submit', function (ev) {
       ev.preventDefault();
       var bad = null;
@@ -445,53 +459,46 @@
     }, function (e) { if (e.status === 401) renderLogin(route); else shell('<h1 class="cr-title">Страница не найдена</h1><p><a href="#/">В кабинет</a></p>'); });
   }
 
-  function lockBox(what) {
-    return '<div class="cr-lock">' + ICON.lock + '<div><b>' + what + ' — в расширенной странице</b><span>Разовая оплата ' + PRICE_EXT + ', без подписки.</span></div><button type="button" class="btn btn--solid" data-upgrade>Подключить</button></div>';
+  // платный раздел — пометка, но заполнять можно (на странице появится в расширенной)
+  function paidMark(p) {
+    return isExt(p) ? '' : '<span class="cr-paid" title="Покажется на странице в расширенной версии">Расширенная · ' + PRICE_EXT + '</span>';
   }
 
-  function sec(id, title, inner, badge) {
-    return '<section class="cr-sec" id="' + id + '"><h2 class="cr-sec__t">' + title + (badge ? '<span class="cr-tag cr-tag--ext">' + badge + '</span>' : '') + '</h2>' + inner + '</section>';
+  function sec(id, title, inner, extra) {
+    return '<section class="cr-sec" id="' + id + '"><h2 class="cr-sec__t">' + title + (extra || '') + '</h2>' + inner + '</section>';
   }
+
+  var pvAs = null;          // превью: 'free' | 'ext'
+  var order = { plan: null, plaque: false };
 
   function renderEditor() {
     var p = cur, ext = isExt(p), len = bioLen(p);
-    var bioUI;
-    if (ext) {
-      bioUI = (p.bio || []).map(function (c, i) {
-        return '<div class="cr-chap"><div class="cr-chap__head"><input data-ct="' + i + '" value="' + esc(c.title) + '" placeholder="Название главы (например: Детство)" aria-label="Название главы ' + (i + 1) + '">' +
-          ((p.bio.length > 1) ? '<button type="button" class="cr-del" data-delchap="' + i + '" aria-label="Удалить главу">' + ICON.x + '</button>' : '') + '</div>' +
-          '<textarea data-cx="' + i + '" rows="7" placeholder="Текст главы. Пустая строка — новый абзац." aria-label="Текст главы ' + (i + 1) + '">' + esc(c.text) + '</textarea></div>';
-      }).join('') + '<button type="button" class="btn" id="addchap">' + ICON.plus + 'Добавить главу</button>';
-    } else {
-      var t = (p.bio && p.bio[0] && p.bio[0].text) || '';
-      bioUI = '<textarea id="bio-free" rows="7" maxlength="' + FREE_BIO + '" placeholder="Несколько слов о человеке: кем был, что любил, каким его помнят." aria-describedby="bio-cnt">' + esc(t) + '</textarea>' +
-        '<p class="cr-count" id="bio-cnt"><span>' + t.length + '</span> / ' + FREE_BIO + ' знаков</p>' +
-        '<div class="cr-hint-up" id="bio-up"' + (t.length >= FREE_BIO * 0.9 ? '' : ' hidden') + '>Хотите рассказать больше? В расширенной странице биография без ограничений и по главам. <button type="button" class="linkbtn" data-upgrade>Подключить — ' + PRICE_EXT + '</button></div>';
-    }
+    if (!order.plan) order.plan = ext ? 'ext' : 'free';
+    if (!pvAs) pvAs = ext ? 'ext' : 'free';
+    var bioUI = (p.bio || []).map(function (c, i) {
+      return '<div class="cr-chap"><div class="cr-chap__head"><input data-ct="' + i + '" value="' + esc(c.title) + '" placeholder="' + (i ? 'Название главы (например: Служба)' : 'Название главы — необязательно') + '" aria-label="Название главы ' + (i + 1) + '">' +
+        ((p.bio.length > 1) ? '<button type="button" class="cr-del" data-delchap="' + i + '" aria-label="Удалить главу">' + ICON.x + '</button>' : '') + '</div>' +
+        '<textarea data-cx="' + i + '" rows="7" placeholder="Кем был человек, что любил, каким его помнят. Пустая строка — новый абзац." aria-label="Текст главы ' + (i + 1) + '">' + esc(c.text) + '</textarea></div>';
+    }).join('') +
+      '<p class="cr-count' + (len > FREE_BIO && !ext ? ' is-over' : '') + '" id="bio-cnt">' + bioCountText(len, ext) + '</p>' +
+      '<button type="button" class="btn" id="addchap">' + ICON.plus + 'Добавить главу</button>';
     var help = '<details class="cr-help"><summary>Не знаете, с чего начать? Вопросы-подсказки</summary><ul>' + QUESTIONS.map(function (q) { return '<li>' + q + '</li>'; }).join('') + '</ul></details>';
+    var note = function (t) { return ext ? '' : '<p class="cr-paidnote">' + t + '</p>'; };
 
-    var photosUI = ext
-      ? '<div class="cr-photos">' + (p.photos || []).map(function (src, i) { return '<div class="cr-ph" style="background-image:url(' + src + ')"><button type="button" class="cr-del" data-delph="' + i + '" aria-label="Удалить фото ' + (i + 1) + '">' + ICON.x + '</button></div>'; }).join('') +
-        ((p.photos || []).length < EXT_PHOTOS ? '<label class="cr-ph cr-ph--add"><input type="file" accept="image/*" multiple id="phf" hidden>' + ICON.plus + '<span>Добавить</span></label>' : '') + '</div>' +
-        '<p class="field__hint">' + (p.photos || []).length + ' из ' + EXT_PHOTOS + '. Фото сжимаются автоматически.</p>'
-      : lockBox('Галерея до ' + EXT_PHOTOS + ' фото');
-    var videosUI = ext
-      ? (p.videos || []).map(function (v, i) { return '<div class="cr-row"><input data-vid="' + i + '" value="' + esc(v) + '" placeholder="Ссылка на Rutube или VK Видео" aria-label="Ссылка на видео ' + (i + 1) + '"><button type="button" class="cr-del" data-delvid="' + i + '" aria-label="Удалить видео">' + ICON.x + '</button></div>'; }).join('') +
-        '<p class="field__err" id="vid-err" hidden>Не распознали ссылку. Подойдут Rutube и VK Видео.</p><button type="button" class="btn" id="addvid">' + ICON.plus + 'Добавить видео</button>'
-      : lockBox('Видео');
-    var relsUI = ext
-      ? (p.relatives || []).map(function (r, i) { return '<div class="cr-row cr-row--2"><input data-rn="' + i + '" value="' + esc(r.name) + '" placeholder="ФИО" aria-label="ФИО родственника"><input data-rr="' + i + '" value="' + esc(r.relation) + '" placeholder="Кем приходится: сын, жена…" aria-label="Кем приходится"><button type="button" class="cr-del" data-delrel="' + i + '" aria-label="Удалить">' + ICON.x + '</button></div>'; }).join('') +
-        '<button type="button" class="btn" id="addrel">' + ICON.plus + 'Добавить родственника</button>' +
-        '<p class="field__hint">Указывайте умерших родственников или тех, кто согласен на публикацию своего имени.</p>'
-      : lockBox('Родственники и семейное древо');
-
-    var plan = ext
-      ? '<div class="cr-plan cr-plan--ext"><span class="cr-tag cr-tag--ext">Расширенная</span><span>' + (p.demo ? 'Включена в демо-режиме, чтобы посмотреть возможности. Оплата — при запуске.' : 'Все возможности открыты.') + '</span></div>'
-      : '<div class="cr-plan"><span class="cr-tag">Базовая · бесплатно</span><span>1 портрет и биография до ' + FREE_BIO + ' знаков.</span><button type="button" class="btn btn--solid" data-upgrade>Расширенная — ' + PRICE_EXT + '</button></div>';
+    var photosUI = note('Добавляйте сразу — на странице фото появятся в расширенной версии. В превью справа переключите «Расширенная», чтобы увидеть.') +
+      '<div class="cr-photos">' + (p.photos || []).map(function (src, i) { return '<div class="cr-ph" style="background-image:url(' + src + ')"><button type="button" class="cr-del" data-delph="' + i + '" aria-label="Удалить фото ' + (i + 1) + '">' + ICON.x + '</button></div>'; }).join('') +
+      ((p.photos || []).length < EXT_PHOTOS ? '<label class="cr-ph cr-ph--add"><input type="file" accept="image/*" multiple id="phf" hidden>' + ICON.plus + '<span>Добавить</span></label>' : '') + '</div>' +
+      '<p class="field__hint">' + (p.photos || []).length + ' из ' + EXT_PHOTOS + '. Фото сжимаются автоматически.</p>';
+    var videosUI = note('Видео появится на странице в расширенной версии.') +
+      (p.videos || []).map(function (v, i) { return '<div class="cr-row"><input data-vid="' + i + '" value="' + esc(v) + '" placeholder="Ссылка на Rutube или VK Видео" aria-label="Ссылка на видео ' + (i + 1) + '"><button type="button" class="cr-del" data-delvid="' + i + '" aria-label="Удалить видео">' + ICON.x + '</button></div>'; }).join('') +
+      '<p class="field__err" id="vid-err" hidden>Не распознали ссылку. Подойдут Rutube и VK Видео.</p><button type="button" class="btn" id="addvid">' + ICON.plus + 'Добавить видео</button>';
+    var relsUI = (p.relatives || []).map(function (r, i) { return '<div class="cr-row cr-row--2"><input data-rn="' + i + '" value="' + esc(r.name) + '" placeholder="ФИО" aria-label="ФИО родственника"><input data-rr="' + i + '" value="' + esc(r.relation) + '" placeholder="Кем приходится: сын, жена…" aria-label="Кем приходится"><button type="button" class="cr-del" data-delrel="' + i + '" aria-label="Удалить">' + ICON.x + '</button></div>'; }).join('') +
+      '<button type="button" class="btn" id="addrel">' + ICON.plus + 'Добавить родственника</button>' +
+      '<p class="field__hint">Бесплатно. Указывайте умерших родственников или тех, кто согласен на публикацию своего имени.</p>';
 
     shell('<a class="cr-back" href="' + BASE + '/kabinet/">← Личный кабинет</a>' +
-      '<div class="cr-head"><h1 class="cr-title">' + esc(fullName(p) || 'Новая страница') + '</h1><span class="cr-saved" id="saved" aria-live="polite">Сохранено</span></div>' +
-      plan +
+      '<div class="cr-head"><h1 class="cr-title">' + esc(fullName(p) || 'Новая страница') + '</h1><span class="cr-saved" id="saved" aria-live="polite">' + (p.status === 'published' ? 'Опубликована · сохранено' : 'Черновик · сохранено') + '</span></div>' +
+      '<p class="cr-sub">Заполняйте спокойно — всё сохраняется само. Разделы с пометкой «Расширенная» можно заполнить сразу: на странице они появятся в расширенной версии. Выбрать версию и опубликовать — в конце.</p>' +
       '<div class="cr-split"><div class="cr-form">' +
         sec('s-main', 'Основное',
           '<div class="cr-s1"><label class="cr-upload' + (p.portrait ? ' has' : '') + '" id="up"' + (p.portrait ? ' style="background-image:url(' + p.portrait + ')"' : '') + '><input type="file" accept="image/*" id="upf" hidden><span class="cr-upload__in">' + ICON.photo + '<span>' + (p.portrait ? 'Заменить' : 'Портрет') + '</span></span></label>' +
@@ -502,20 +509,127 @@
         sec('s-place', 'Место захоронения',
           field('e-place', 'Кладбище и адрес', 'value="' + esc((p.burial || {}).text) + '" placeholder="Например: Юго-Восточное кладбище, г. Омск"') +
           field('e-coords', 'Координаты <span>(необязательно)</span>', 'value="' + esc((p.burial || {}).coords) + '" placeholder="54.930856, 73.60815"', 'Откройте Яндекс Карты, нажмите на место — координаты появятся внизу. Тогда маршрут приведёт точно к могиле.')) +
-        sec('s-photos', 'Фотографии', photosUI, ext ? '' : '') +
-        sec('s-video', 'Видео', videosUI) +
-        sec('s-rel', 'Родственники', relsUI) +
-        sec('s-done', 'Готово',
-          '<div class="cr-done"><div class="cr-qr"><img id="qr" alt="QR-код страницы" width="148" height="148"></div><div>' +
-          '<p>Ссылка на страницу и QR-код. QR можно распечатать или заказать готовую табличку.</p>' +
-          '<div class="cr-done__btns"><a class="btn btn--solid" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a>' +
-          '<a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png">Скачать QR-код</a>' +
-          '<button type="button" class="btn" id="plaque">Заказать именную табличку — ' + PRICE_PLAQUE + '</button></div>' +
-          '<button type="button" class="linkbtn cr-delpage" id="delpage">Удалить страницу</button></div></div>') +
-      '</div><aside class="cr-prev" aria-label="Предпросмотр"><div class="cr-phone"><div class="cr-phone__scr" id="pv"></div></div><p class="cr-prev__cap">Так страница выглядит на телефоне</p></aside></div>' +
+        sec('s-photos', 'Фотографии', photosUI, paidMark(p)) +
+        sec('s-video', 'Видео', videosUI, paidMark(p)) +
+        sec('s-rel', 'Родственники', relsUI, '<span class="cr-free">Бесплатно</span>') +
+        sec('s-done', 'Ваш заказ', orderHTML(p)) +
+      '</div><aside class="cr-prev" aria-label="Предпросмотр">' +
+        '<div class="cr-pvswitch" role="group" aria-label="Какую версию показать"><button type="button" data-pv="free" aria-pressed="' + (pvAs === 'free') + '">Бесплатная</button><button type="button" data-pv="ext" aria-pressed="' + (pvAs === 'ext') + '">Расширенная</button></div>' +
+        '<div class="cr-phone"><div class="cr-phone__scr" id="pv"></div></div><p class="cr-prev__cap" id="pvcap"></p></aside></div>' +
       demoNote());
     bindEditor();
     updatePreview();
+  }
+
+  function bioCountText(len, ext) {
+    if (ext) return len + ' знаков';
+    return len <= FREE_BIO ? len + ' из ' + FREE_BIO + ' бесплатных знаков'
+      : '<span class="cr-paid">Расширенная</span> ' + len + ' знаков — бесплатно показываются первые ' + FREE_BIO;
+  }
+
+  // ---------- «Ваш заказ»: версия, табличка, оплата ----------
+  function orderHTML(p) {
+    var ext = isExt(p), cnt = (p.photos || []).length, vc = (p.videos || []).filter(Boolean).length, len = bioLen(p);
+    var extras = [];
+    if (cnt) extras.push(cnt + ' фото');
+    if (vc) extras.push(vc + ' видео');
+    if (len > FREE_BIO) extras.push('полная биография');
+    var plan = ext
+      ? '<div class="cr-opt is-on"><b>Расширенная страница</b> — оплачена. На странице всё, что вы добавили.</div>'
+      : '<label class="cr-opt' + (order.plan === 'free' ? ' is-on' : '') + '"><input type="radio" name="plan" value="free"' + (order.plan === 'free' ? ' checked' : '') + '><span><b>Бесплатная страница — 0 ₽</b><small>ФИО, даты, портрет, место захоронения, биография до ' + FREE_BIO + ' знаков, родственники, QR-код.</small></span></label>' +
+        '<label class="cr-opt' + (order.plan === 'ext' ? ' is-on' : '') + '"><input type="radio" name="plan" value="ext"' + (order.plan === 'ext' ? ' checked' : '') + '><span><b>Расширенная страница — ' + PRICE_EXT + '</b><small>Всё, что вы добавили' + (extras.length ? ' (' + extras.join(', ') + ')' : '') + ', появится на странице: биография без ограничений, до ' + EXT_PHOTOS + ' фото, видео. Разовая оплата, без подписки.</small></span></label>';
+    var total = (order.plan === 'ext' && !ext ? SUM_EXT : 0) + (order.plaque ? SUM_PLAQUE : 0);
+    var delivery = order.plaque ? '<div class="cr-deliv"><h3>Доставка СДЭК</h3>' +
+        field('o-name', 'Получатель (ФИО)', 'autocomplete="name"') + field('o-phone', 'Телефон', 'type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00"') +
+        '<div class="cr-grid2">' + field('o-city', 'Город', 'autocomplete="address-level2"') + field('o-addr', 'Пункт выдачи СДЭК или адрес', 'placeholder="Например: ул. Ленина, 1 (ПВЗ)"') + '</div></div>' : '';
+    var mail = total ? field('o-email', 'Почта для чека', 'type="email" autocomplete="email" value="' + esc(ME || '') + '"') : '';
+    return '<div class="cr-done"><div class="cr-qr" id="qr"></div><div>' +
+        '<p>Ссылка и QR-код страницы. QR можно распечатать сразу.</p>' +
+        '<div class="cr-done__btns"><a class="btn" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a><a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png" href="#">Скачать QR-код</a></div></div></div>' +
+      '<div class="cr-order">' + plan +
+        '<label class="cr-opt cr-opt--plaque' + (order.plaque ? ' is-on' : '') + '"><input type="checkbox" id="o-plaque"' + (order.plaque ? ' checked' : '') + '><span><b>Именная QR-табличка — ' + PRICE_PLAQUE + '</b><small>Двухслойный акрил, УФ-печать, 2 таблички и 2 наклейки в подарочной коробке. Доставка СДЭК. <button type="button" class="linkbtn" id="plaque">Подробнее и фото</button></small></span></label>' +
+        delivery + mail +
+        '<div class="cr-total"><span>Итого</span><b>' + (total ? total.toLocaleString('ru-RU') + ' ₽' : '0 ₽') + '</b></div>' +
+        '<button type="button" class="btn btn--solid cr-pay" id="o-go">' + (total ? 'Оплатить ' + total.toLocaleString('ru-RU') + ' ₽' : (p.status === 'published' ? 'Страница опубликована — обновить' : 'Опубликовать бесплатно')) + '</button>' +
+        '<p class="field__err" id="o-err" hidden></p>' +
+      '</div>' +
+      '<button type="button" class="linkbtn cr-delpage" id="delpage">Удалить страницу</button>';
+  }
+
+  function plaqueModal() {
+    var img = function (src, alt) { return '<img src="' + BASE + src + '" alt="' + alt + '" loading="lazy">'; };
+    openModal('<h2 class="cr-modal__t">Именная QR-табличка — ' + PRICE_PLAQUE + '</h2>' +
+      '<div class="cr-plq">' + img('/assets/img/home/plaque.webp', 'QR-табличка на памятнике') + img('/assets/img/home/grave-2.webp', 'Комплект в подарочной коробке') + img('/assets/img/home/grave-1.webp', 'Табличка в руке у памятника') + '</div>' +
+      (CFG.plaqueVideo ? '<div class="cr-plq__video"><iframe src="' + esc(CFG.plaqueVideo) + '" title="Распаковка таблички" loading="lazy" allowfullscreen></iframe></div>' : '') +
+      '<p class="cr-plq__text">Табличка 6×6 см из <b>двухслойного акрила с УФ-печатью</b> — с QR-кодом этой страницы в сердце и именем. Не выцветает, не боится дождя и мороза.</p>' +
+      '<p class="cr-plq__text"><b>В комплекте:</b> 2 таблички и 2 наклейки в красивой подарочной коробке. Изготовим и отправим СДЭК.</p>' +
+      '<button type="button" class="btn btn--solid" id="plq-add">' + (order.plaque ? 'Табличка уже в заказе' : 'Добавить в заказ') + '</button>');
+    $('#plq-add').addEventListener('click', function () { order.plaque = true; closeModal(); refreshOrder(); var o = $('#s-done'); if (o) o.scrollIntoView({ behavior: 'smooth' }); });
+  }
+
+  function refreshOrder() {
+    var box = $('#s-done'); if (!box) return;
+    box.innerHTML = '<h2 class="cr-sec__t">Ваш заказ</h2>' + orderHTML(cur);
+    bindOrder(); drawQR();
+  }
+
+  function drawQR() {
+    var q = $('#qr'); if (!q || !window.heartQR) return;
+    q.innerHTML = window.heartQR(pageUrl(cur.id));
+    var dl = $('#qrdl');
+    if (dl) window.heartQRpng(pageUrl(cur.id), 1200, function (png) { dl.href = png; });
+  }
+
+  function bindOrder() {
+    var p = cur;
+    $$('input[name="plan"]').forEach(function (r) { r.addEventListener('change', function () { order.plan = r.value; pvAs = r.value; refreshOrder(); updatePreview(); syncSwitch(); }); });
+    var pl = $('#o-plaque'); if (pl) pl.addEventListener('change', function () { order.plaque = pl.checked; refreshOrder(); });
+    var more = $('#plaque'); if (more) more.addEventListener('click', function (e) { e.preventDefault(); plaqueModal(); });
+    var ph = $('#o-phone'); if (ph) ph.addEventListener('input', function () { ph.value = ph.value.replace(/[^\d+()\- ]/g, ''); });
+    $('#o-go').addEventListener('click', function () { checkout(p); });
+    $('#delpage').addEventListener('click', function () {
+      if (!confirm('Удалить страницу «' + (fullName(p) || 'без имени') + '»? Это нельзя отменить.')) return;
+      pages.del(p.id).then(function () { toast('Страница удалена'); location.hash = '#/'; }, function (e) { toast(e.message); });
+    });
+  }
+
+  function checkout(p) {
+    var err = $('#o-err'), btn = $('#o-go');
+    var fail = function (m, el) { err.hidden = false; err.textContent = m; if (el) el.focus(); };
+    err.hidden = true;
+    if (!p.lastName || !p.firstName) return fail('Заполните фамилию и имя в разделе «Основное»', $('#e-last'));
+    var total = (order.plan === 'ext' && !isExt(p) ? SUM_EXT : 0) + (order.plaque ? SUM_PLAQUE : 0);
+    var delivery = {};
+    if (order.plaque) {
+      var need = [['o-name', 'получателя'], ['o-phone', 'телефон'], ['o-city', 'город'], ['o-addr', 'пункт выдачи СДЭК']];
+      for (var i = 0; i < need.length; i++) { var el = $('#' + need[i][0]); if (!el.value.trim()) return fail('Укажите ' + need[i][1], el); }
+      if ($('#o-phone').value.replace(/\D/g, '').length < 10) return fail('Проверьте телефон', $('#o-phone'));
+      delivery = { name: $('#o-name').value.trim(), phone: $('#o-phone').value.trim(), city: $('#o-city').value.trim(), address: $('#o-addr').value.trim() };
+    }
+    if (total) {
+      var em = $('#o-email'); if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(em.value.trim())) return fail('Укажите почту для чека', em);
+      delivery.email = em.value.trim();
+    }
+    btn.disabled = true; btn.textContent = total ? 'Переходим к оплате…' : 'Публикуем…';
+    var body = { plan: order.plan === 'ext' ? 'extended' : 'free', plaque: order.plaque, delivery: delivery };
+    var done = function (r) {
+      if (r && r.payUrl) { location.href = r.payUrl; return; }
+      if (r && r.published) { p.status = 'published'; toast('Страница опубликована'); refreshOrder(); $('#saved').textContent = 'Опубликована · сохранено'; return; }
+      // оплата ещё не подключена (нет ключей ЮKassa) — заказ сохранён
+      btn.disabled = false; btn.textContent = 'Оплатить ' + total.toLocaleString('ru-RU') + ' ₽';
+      openModal('<h2 class="cr-modal__t">Заказ сохранён</h2><p>Онлайн-оплата подключается. Заказ №' + esc(r && r.order || '') + ' на ' + total.toLocaleString('ru-RU') + ' ₽ сохранён — мы пришлём ссылку на оплату на ' + esc(delivery.email || '') + '.</p>');
+    };
+    if (API) {
+      pages.save(p).then(function () { return apiCall('POST', '/pages/' + p.id + '/order', body); }).then(done, function (e) { btn.disabled = false; btn.textContent = total ? 'Оплатить' : 'Опубликовать'; fail(e.message); });
+    } else {   // демо без сервера: оплата не проводится
+      if (total) { if (order.plan === 'ext') p.plan = 'extended'; p.demo = true; }
+      p.status = 'published';
+      store.put(p).then(function () {
+        if (total) openModal('<h2 class="cr-modal__t">Демо: оплата не проводится</h2><p>На рабочем сайте здесь откроется оплата ЮKassa на ' + total.toLocaleString('ru-RU') + ' ₽. Для просмотра считаем, что оплачено' + (order.plan === 'ext' ? ' — расширенная включена' : '') + (order.plaque ? ', табличка заказана' : '') + '.</p>');
+        else toast('Страница опубликована');
+        order.plan = isExt(p) ? 'ext' : 'free'; order.plaque = false; renderEditor();   // оплачено — заказ очищен
+      });
+    }
   }
 
   var PV_TARGET = { 's-main': null, 's-bio': 'bio', 's-place': 'mesto', 's-photos': 'foto', 's-video': 'video', 's-rel': 'semya', 's-done': 'qr' };
@@ -525,22 +639,27 @@
     var t = pvFocus && $('#pv #' + pvFocus);
     pv.scrollTo({ top: t ? Math.max(0, t.getBoundingClientRect().top - pv.getBoundingClientRect().top + pv.scrollTop - 12) : 0, behavior: 'smooth' });
   }
+  function syncSwitch() {
+    $$('[data-pv]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-pv') === pvAs)); });
+    var cap = $('#pvcap');
+    if (cap) cap.textContent = pvAs === 'ext' ? 'Так будет выглядеть расширенная страница' + (isExt(cur) ? '' : ' (' + PRICE_EXT + ')') : 'Так будет выглядеть бесплатная страница';
+  }
   function updatePreview() {
     var pv = $('#pv'); if (!pv) return;
-    // карту не перезагружаем на каждый символ: переносим уже открытый iframe, если адрес не менялся
     var oldMap = $('#pv .place__map iframe');
-    pv.innerHTML = '<div class="cr-pv">' + pageHTML(cur, { preview: true }) + '</div>';
+    pv.innerHTML = '<div class="cr-pv">' + pageHTML(cur, { preview: true, as: pvAs }) + '</div>';
     var newMap = $('#pv .place__map iframe');
     if (oldMap && newMap && oldMap.src === newMap.src) newMap.parentNode.replaceChild(oldMap, newMap);
     if (pvFocus) { var t = $('#pv #' + pvFocus); if (t) pv.scrollTop = Math.max(0, t.getBoundingClientRect().top - pv.getBoundingClientRect().top + pv.scrollTop - 12); }
-    var q = makeQR(pageUrl(cur.id), 5); var qi = $('#qr'); if (qi && q) { qi.src = q; $('#qrdl').href = makeQR(pageUrl(cur.id), 12); }
+    syncSwitch();
   }
 
   function save(now) {
     clearTimeout(saveT);
     var s = $('#saved'); if (s) s.textContent = 'Сохраняем…';
+    var st = function () { return cur.status === 'published' ? 'Опубликована · сохранено' : 'Черновик · сохранено'; };
     var go = function () {
-      pages.save(cur).then(function () { var e = $('#saved'); if (e) e.textContent = 'Сохранено'; },
+      pages.save(cur).then(function () { var e = $('#saved'); if (e) e.textContent = st(); },
         function (er) { var e = $('#saved'); if (e) e.textContent = 'Не сохранено'; toast(er.message); });
     };
     if (now) go(); else saveT = setTimeout(go, 500);
@@ -554,46 +673,42 @@
         pvFocus = PV_TARGET[sec.id]; scrollPreview();
       });
     });
+    $$('[data-pv]').forEach(function (b) { b.addEventListener('click', function () { pvAs = b.getAttribute('data-pv'); updatePreview(); }); });
     var live = function (sel, fn) { var el = $(sel); if (el) el.addEventListener('input', function () { fn(el.value); updatePreview(); save(); }); };
     live('#e-last', function (v) { p.lastName = v.trim(); $('.cr-title').textContent = fullName(p) || 'Новая страница'; });
     live('#e-first', function (v) { p.firstName = v.trim(); $('.cr-title').textContent = fullName(p) || 'Новая страница'; });
     live('#e-patr', function (v) { p.patronymic = v.trim(); });
     ['born', 'died'].forEach(function (k) {
       var el = $('#e-' + k);
-      el.addEventListener('input', function () {
-        el.value = el.value.replace(/[^\d.]/g, '');
-        var v = el.value.trim(), ok = !v || parseDate(v);
-        $('#e-' + k + '-err').hidden = !!ok; $('#e-' + k + '-err').textContent = 'Формат: ДД.ММ.ГГГГ или ГГГГ';
+      var apply = function () {
+        var v = el.value.trim(), ok = !v || parseDate(v) || /^\d{1,2}(\.\d{0,2}(\.\d{0,3})?)?$/.test(v);
+        var full = !v || parseDate(v);
+        $('#e-' + k + '-err').hidden = !!ok; $('#e-' + k + '-err').textContent = 'Проверьте дату: ДД.ММ.ГГГГ или только год';
         el.setAttribute('aria-invalid', ok ? 'false' : 'true');
-        if (ok) { p[k] = v; updatePreview(); save(); }
-      });
+        if (full) { p[k] = v; updatePreview(); save(); }
+      };
+      el.addEventListener('input', function () { maskDate(el); apply(); });
+      el.addEventListener('blur', function () { dateOnBlur(el); apply(); });
     });
     live('#e-epi', function (v) { p.epitaph = v.trim(); });
     live('#e-place', function (v) { p.burial = p.burial || {}; p.burial.text = v; });
     live('#e-coords', function (v) { p.burial = p.burial || {}; p.burial.coords = v; });
-    var bf = $('#bio-free');
-    if (bf) bf.addEventListener('input', function () {
-      p.bio = [{ title: '', text: bf.value }];
-      $('#bio-cnt span').textContent = bf.value.length;
-      $('#bio-up').hidden = bf.value.length < FREE_BIO * 0.9;
-      updatePreview(); save();
-    });
+    var bioCount = function () { var len = bioLen(p), c = $('#bio-cnt'); c.innerHTML = bioCountText(len, isExt(p)); c.classList.toggle('is-over', len > FREE_BIO && !isExt(p)); };
     $$('[data-ct]').forEach(function (i) { i.addEventListener('input', function () { p.bio[+i.getAttribute('data-ct')].title = i.value; updatePreview(); save(); }); });
-    $$('[data-cx]').forEach(function (i) { i.addEventListener('input', function () { p.bio[+i.getAttribute('data-cx')].text = i.value; updatePreview(); save(); }); });
-    var ac = $('#addchap'); if (ac) ac.addEventListener('click', function () { p.bio.push({ title: '', text: '' }); save(true); renderEditor(); var n = $$('[data-ct]'); n[n.length - 1].focus(); });
+    $$('[data-cx]').forEach(function (i) { i.addEventListener('input', function () { p.bio[+i.getAttribute('data-cx')].text = i.value; bioCount(); updatePreview(); save(); }); });
+    $('#addchap').addEventListener('click', function () { p.bio.push({ title: '', text: '' }); save(true); renderEditor(); var n = $$('[data-ct]'); n[n.length - 1].focus(); });
     $$('[data-delchap]').forEach(function (b) { b.addEventListener('click', function () { if (!confirm('Удалить главу?')) return; p.bio.splice(+b.getAttribute('data-delchap'), 1); save(true); renderEditor(); }); });
-    // портрет
     var upf = $('#upf');
     upf.addEventListener('change', function () {
       var f = upf.files[0]; if (!f) return;
       readPhoto(f, 1400).then(function (d) { return pages.upload(p, 'portrait', d); })
         .then(function (np) { syncFromServer(np); renderEditor(); }, function (e) { toast(e && e.message && e.message !== 'type' && e.message !== 'decode' ? e.message : 'Не удалось прочитать фото. Подойдёт JPG или PNG.'); });
     });
-    // фото
     var phf = $('#phf');
     if (phf) phf.addEventListener('change', function () {
       var files = Array.prototype.slice.call(phf.files, 0, EXT_PHOTOS - p.photos.length);
       toast('Загружаем фото: ' + files.length);
+      if (!isExt(p)) { pvAs = 'ext'; }   // сразу показать, как фото будут выглядеть
       files.reduce(function (pr, f) {
         return pr.then(function () { return readPhoto(f, 1600).then(function (d) { return pages.upload(p, 'photos', d); }).then(syncFromServer, function (e) { if (e && e.message && e.message !== 'type') toast(e.message); }); });
       }, Promise.resolve()).then(function () { renderEditor(); var s = $('#s-photos'); if (s) s.scrollIntoView(); });
@@ -601,8 +716,7 @@
     $$('[data-delph]').forEach(function (b) { b.addEventListener('click', function () {
       pages.delPhoto(p, +b.getAttribute('data-delph')).then(function (np) { syncFromServer(np); renderEditor(); $('#s-photos').scrollIntoView(); }, function (e) { toast(e.message); });
     }); });
-    // видео
-    var av = $('#addvid'); if (av) av.addEventListener('click', function () { p.videos.push(''); save(true); renderEditor(); var n = $$('[data-vid]'); n[n.length - 1].focus(); });
+    $('#addvid').addEventListener('click', function () { p.videos.push(''); if (!isExt(p)) pvAs = 'ext'; save(true); renderEditor(); var n = $$('[data-vid]'); n[n.length - 1].focus(); });
     $$('[data-vid]').forEach(function (i) {
       i.addEventListener('input', function () {
         p.videos[+i.getAttribute('data-vid')] = i.value.trim(); updatePreview(); save();
@@ -611,43 +725,15 @@
       i.addEventListener('blur', function () { var bad = i.value.trim() && !videoEmbed(i.value); $('#vid-err').hidden = !bad; i.setAttribute('aria-invalid', bad ? 'true' : 'false'); });
     });
     $$('[data-delvid]').forEach(function (b) { b.addEventListener('click', function () { p.videos.splice(+b.getAttribute('data-delvid'), 1); save(true); renderEditor(); $('#s-video').scrollIntoView(); }); });
-    // родственники
-    var ar = $('#addrel'); if (ar) ar.addEventListener('click', function () { p.relatives.push({ name: '', relation: '' }); save(true); renderEditor(); var n = $$('[data-rn]'); n[n.length - 1].focus(); });
+    $('#addrel').addEventListener('click', function () { p.relatives.push({ name: '', relation: '' }); save(true); renderEditor(); var n = $$('[data-rn]'); n[n.length - 1].focus(); });
     $$('[data-rn]').forEach(function (i) { i.addEventListener('input', function () { p.relatives[+i.getAttribute('data-rn')].name = i.value; updatePreview(); save(); }); });
     $$('[data-rr]').forEach(function (i) { i.addEventListener('input', function () { p.relatives[+i.getAttribute('data-rr')].relation = i.value; updatePreview(); save(); }); });
     $$('[data-delrel]').forEach(function (b) { b.addEventListener('click', function () { p.relatives.splice(+b.getAttribute('data-delrel'), 1); save(true); renderEditor(); $('#s-rel').scrollIntoView(); }); });
-    // апгрейд, табличка, удаление
-    $$('[data-upgrade]').forEach(function (b) { b.addEventListener('click', openUpgrade); });
-    $('#plaque').addEventListener('click', function () {
-      openModal('<h2 class="cr-modal__t">Именная QR-табличка — ' + PRICE_PLAQUE + '</h2><p>Изготовим под заказ табличку 6×6 см с уникальным QR-кодом этой страницы, проверим, упакуем и отправим СДЭК. Напишите нам — пришлём макет на согласование и ссылку на оплату.</p>' +
-        msgButtons('Здравствуйте! Хочу заказать изготовление именной QR-таблички (' + PRICE_PLAQUE + ') для страницы: ' + fullName(p) + ', ' + span(p) + '.'));
-    });
-    $('#delpage').addEventListener('click', function () {
-      if (!confirm('Удалить страницу «' + (fullName(p) || 'без имени') + '»? Это нельзя отменить.')) return;
-      pages.del(p.id).then(function () { toast('Страница удалена'); location.hash = '#/'; }, function (e) { toast(e.message); });
-    });
+    bindOrder(); drawQR();
   }
 
-  function msgButtons(text) {
-    return '<div class="cr-modal__btns"><a class="btn btn--solid" href="' + esc(msgLink('wa', text)) + '" target="_blank" rel="noopener">Написать в WhatsApp</a>' +
-      '<a class="btn" href="' + esc(CFG.tg) + '" target="_blank" rel="noopener">Telegram</a>' +
-      (CFG.max ? '<a class="btn" href="' + esc(CFG.max) + '" target="_blank" rel="noopener">MAX</a>'
-        : CFG.maxPhone ? '<button type="button" class="btn" data-copy="' + esc(CFG.maxPhone) + '" data-copy-msg="Номер ' + esc(CFG.maxPhone) + ' скопирован. В MAX: «Новый чат» → вставьте номер">MAX</button>' : '') + '</div>';
-  }
-
-  function openUpgrade() {
-    var p = cur;
-    openModal('<h2 class="cr-modal__t">Расширенная страница — ' + PRICE_EXT + '</h2>' +
-      '<ul class="h-list"><li>' + ICON.check + '<span>Биография без ограничений, по главам</span></li><li>' + ICON.check + '<span>До ' + EXT_PHOTOS + ' фотографий</span></li><li>' + ICON.check + '<span>Видео с Rutube и VK Видео</span></li><li>' + ICON.check + '<span>Родственники и семейное древо</span></li></ul>' +
-      '<p>Разовая оплата, без подписки. Онлайн-оплата подключается — сейчас оформить можно через мессенджер, откроем расширенную вручную.</p>' +
-      msgButtons('Здравствуйте! Хочу подключить расширенную страницу (' + PRICE_EXT + ') для: ' + fullName(p) + ', ' + span(p) + '. Номер страницы: ' + p.id + '.') +
-      (API ? '' : '<button type="button" class="linkbtn cr-demo-on" id="demo-on">Посмотреть возможности (демо, без оплаты)</button>'));
-    if ($('#demo-on')) $('#demo-on').addEventListener('click', function () {
-      p.plan = 'extended'; p.demo = true;
-      if (p.bio && p.bio.length === 1 && !p.bio[0].title) p.bio[0].title = '';
-      save(true); closeModal(); renderEditor(); toast('Расширенные возможности включены (демо)');
-    });
-  }
+  // не используется в новой логике — оставлено для совместимости ссылок data-upgrade
+  function openUpgrade() { order.plan = 'ext'; refreshOrder(); var o = $('#s-done'); if (o) o.scrollIntoView({ behavior: 'smooth' }); }
 
   var modalEl = null, lastFocus = null;
   function openModal(inner) {

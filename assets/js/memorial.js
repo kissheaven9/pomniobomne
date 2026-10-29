@@ -34,9 +34,8 @@
   });
 
   /* ---------- QR-код страницы ---------- */
-  $$('img[data-qr]').forEach(function (im) {
-    if (!window.qrcode) return;
-    try { var q = window.qrcode(0, 'M'); q.addData(im.getAttribute('data-qr')); q.make(); im.src = q.createDataURL(6, 2); } catch (e) {}
+  $$('[data-qr]').forEach(function (el) {   // QR-код в сердце, как в логотипе
+    if (window.heartQR) try { el.innerHTML = window.heartQR(el.getAttribute('data-qr')); } catch (e) {}
   });
 
   /* ---------- Копирование (номер для MAX) ---------- */
