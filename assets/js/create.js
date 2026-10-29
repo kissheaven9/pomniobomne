@@ -281,7 +281,7 @@
       h.push('<div class="place__map"><iframe src="' + esc(place.embed) + '" title="Карта места захоронения" loading="lazy"></iframe></div>');
       h.push('</div></section>');
     }
-    var qr = window.heartQR ? window.heartQR(pageUrl(p.id)) : '';
+    var qr = window.heartQR ? window.heartQR(pageUrl(p.id), { bg: false }) : '';
     if (qr) h.push('<section class="section" id="qr"><div class="wrap qr-sec"><div class="qr-sec__img">' + qr + '</div>' +
       '<div><h2 class="section__title">QR-код страницы</h2><p>Распечатайте или закажите именную табличку на памятник — по QR-коду откроется эта страница.</p></div></div></section>');
     return h.join('');
@@ -524,7 +524,7 @@
   function bioCountText(len, ext) {
     if (ext) return len + ' знаков';
     return len <= FREE_BIO ? len + ' из ' + FREE_BIO + ' бесплатных знаков'
-      : '<span class="cr-paid">Расширенная</span> ' + len + ' знаков — бесплатно показываются первые ' + FREE_BIO;
+      : '<span class="cr-paid">Расширенная · ' + PRICE_EXT + '</span> ' + len + ' знаков — бесплатно показываются первые ' + FREE_BIO;
   }
 
   // ---------- «Ваш заказ»: версия, табличка, оплата ----------
@@ -545,7 +545,7 @@
     var mail = total ? field('o-email', 'Почта для чека', 'type="email" autocomplete="email" value="' + esc(ME || '') + '"') : '';
     return '<div class="cr-done"><div class="cr-qr" id="qr"></div><div>' +
         '<p>Ссылка и QR-код страницы. QR можно распечатать сразу.</p>' +
-        '<div class="cr-done__btns"><a class="btn" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a><a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png" href="#">Скачать QR-код</a></div></div></div>' +
+        '<div class="cr-done__btns"><a class="btn" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a><a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png" href="#">Скачать QR-код</a><a class="btn" id="qrsvg" download="qr-' + esc(p.id) + '-tablichka.svg" href="#">Для печати таблички (SVG)</a></div></div></div>' +
       '<div class="cr-order">' + plan +
         '<label class="cr-opt cr-opt--plaque' + (order.plaque ? ' is-on' : '') + '"><input type="checkbox" id="o-plaque"' + (order.plaque ? ' checked' : '') + '><span><b>Именная QR-табличка — ' + PRICE_PLAQUE + '</b><small>Двухслойный акрил, УФ-печать, 2 таблички и 2 наклейки в подарочной коробке. Доставка СДЭК. <button type="button" class="linkbtn" id="plaque">Подробнее и фото</button></small></span></label>' +
         delivery + mail +
@@ -578,6 +578,8 @@
     q.innerHTML = window.heartQR(pageUrl(cur.id));
     var dl = $('#qrdl');
     if (dl) window.heartQRpng(pageUrl(cur.id), 1200, function (png) { dl.href = png; });
+    var sv = $('#qrsvg');   // белый SVG без фона, как макет таблички (для УФ-печати)
+    if (sv) sv.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(window.heartQR(pageUrl(cur.id), { ecl: 'M', withText: true, bg: false, color: '#fff', accent: '#fff' }));
   }
 
   function bindOrder() {

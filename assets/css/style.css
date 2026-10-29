@@ -376,7 +376,7 @@ a.tree__node:hover { border-color: var(--bronze); box-shadow: var(--shadow); }
 
 /* QR-код страницы и кнопка древа */
 .qr-sec { display: grid; gap: 24px; align-items: center; }
-@media (min-width: 640px) { .qr-sec { grid-template-columns: 180px 1fr; } }
+@media (min-width: 640px) { .qr-sec { grid-template-columns: 240px 1fr; gap: 40px; } }
 .qr-sec__img { width: 180px; padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
 .qr-sec__img img { width: 100%; height: auto; image-rendering: pixelated; }
 .qr-sec p { margin: -8px 0 18px; color: var(--ink-soft); max-width: 46ch; }
@@ -702,7 +702,7 @@ div.cr-opt { display: block; cursor: default; }
 .cr-pay { justify-self: start; height: 52px; padding: 0 28px; font-size: 16px; }
 .cr-qr { width: 170px; flex: none; }
 .cr-qr svg, .qr-sec__img svg { display: block; width: 100%; height: auto; }
-.qr-sec__img { background: none; border: 0; padding: 0; width: 220px; }
+.qr-sec__img { background: none; border: 0; padding: 0; width: 240px; max-width: 100%; }
 .cr-plq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
 .cr-plq img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: var(--radius-sm); }
 .cr-plq__video { aspect-ratio: 16 / 9; border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 14px; background: #000; }
