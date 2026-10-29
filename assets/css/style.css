@@ -759,7 +759,7 @@ div.cr-opt { display: block; cursor: default; }
 .foot img { height: 24px; width: auto; margin-bottom: 12px; }
 .foot a { color: #f1e7da; text-decoration: none; }
 .foot a:hover { text-decoration: underline; }
-.foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; align-content: start; }
 .foot__legal { color: #a69c90; font-size: 13px; }
 
 /* ---------- Просмотрщик фото ---------- */
