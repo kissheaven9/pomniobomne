@@ -8,7 +8,7 @@
   var BASE = (document.documentElement.getAttribute('data-base') || '');
   var CFG = window.POMNI || {};
   var FREE_BIO = 500, EXT_PHOTOS = 200, EPITAPH_MAX = 140;
-  var PRICE_EXT = '2990 ₽', PRICE_PLAQUE = '3990 ₽', SUM_EXT = 2990, SUM_PLAQUE = 3990;
+  var PRICE_EXT = '2990 ₽', PRICE_PLAQUE = '2990 ₽', SUM_EXT = 2990, SUM_PLAQUE = 2990;   // табличка 2990 — решение Ольги 29.10
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
