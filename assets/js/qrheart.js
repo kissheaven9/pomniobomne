@@ -26,7 +26,7 @@
   }
   // PNG для печати таблички: с надписью, уровень коррекции M
   function heartQRpng(text, size, cb) {
-    var svg = heartQR(text, { ecl: 'M', withText: true }), img = new Image();
+    var svg = heartQR(text, { ecl: 'M', withText: true, color: '#bb9174' }), img = new Image();
     img.onload = function () {
       var h = Math.round(size * 322 / 370), cv = document.createElement('canvas'); cv.width = size; cv.height = h;
       var x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, size, h); x.drawImage(img, 0, 0, size, h);

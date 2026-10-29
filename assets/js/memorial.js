@@ -35,7 +35,8 @@
 
   /* ---------- QR-код страницы ---------- */
   $$('[data-qr]').forEach(function (el) {   // QR-код в сердце, как в логотипе
-    if (window.heartQR) try { el.innerHTML = window.heartQR(el.getAttribute('data-qr'), { bg: false }); } catch (e) {}
+    // дуги и код одного бежевого цвета
+    if (window.heartQR) try { el.innerHTML = window.heartQR(el.getAttribute('data-qr'), { bg: false, color: '#bb9174' }); } catch (e) {}
   });
 
   /* ---------- Копирование (номер для MAX) ---------- */

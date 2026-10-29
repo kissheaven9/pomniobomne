@@ -162,7 +162,7 @@
   function gender(p) { var x = (p.patronymic || '').toLowerCase(); return /(вич|ич|оглы|улы)$/.test(x) ? 'm' : /(вна|чна|шна|кызы|гызы)$/.test(x) ? 'f' : null; }
   function fullName(p) { return [p.lastName, p.firstName, p.patronymic].filter(Boolean).join(' '); }
   function span(p) { var b = parseDate(p.born), d = parseDate(p.died); return (b ? b.y : '?') + '–' + (d ? d.y : '?'); }
-  function isExt(p) { return p.plan === 'extended'; }
+  function isExt(p) { return p.plan === 'extended' && !p.demo; }   // демо-«оплата» не считается оплатой
   function bioLen(p) { return (p.bio || []).reduce(function (n, c) { return n + (c.text || '').length; }, 0); }
   function pageUrl(id) { return location.origin + BASE + '/stranica/?id=' + encodeURIComponent(id); }
   function makeQR(text, cell) {
@@ -281,7 +281,7 @@
       h.push('<div class="place__map"><iframe src="' + esc(place.embed) + '" title="Карта места захоронения" loading="lazy"></iframe></div>');
       h.push('</div></section>');
     }
-    var qr = window.heartQR ? window.heartQR(pageUrl(p.id), { bg: false }) : '';
+    var qr = window.heartQR ? window.heartQR(pageUrl(p.id), { bg: false, color: '#bb9174' }) : '';
     if (qr) h.push('<section class="section" id="qr"><div class="wrap qr-sec"><div class="qr-sec__img">' + qr + '</div>' +
       '<div><h2 class="section__title">QR-код страницы</h2><p>Распечатайте или закажите именную табличку на памятник — по QR-коду откроется эта страница.</p></div></div></section>');
     return h.join('');
@@ -535,7 +535,7 @@
     if (vc) extras.push(vc + ' видео');
     if (len > FREE_BIO) extras.push('полная биография');
     var plan = ext
-      ? '<div class="cr-opt is-on"><b>Расширенная страница</b> — оплачена. На странице всё, что вы добавили.</div>'
+      ? '<div class="cr-opt is-on"><b>Расширенная страница подключена</b><small>Оплата получена — на странице всё, что вы добавили.</small></div>'
       : '<label class="cr-opt' + (order.plan === 'free' ? ' is-on' : '') + '"><input type="radio" name="plan" value="free"' + (order.plan === 'free' ? ' checked' : '') + '><span><b>Бесплатная страница — 0 ₽</b><small>ФИО, даты, портрет, место захоронения, биография до ' + FREE_BIO + ' знаков, родственники, QR-код.</small></span></label>' +
         '<label class="cr-opt' + (order.plan === 'ext' ? ' is-on' : '') + '"><input type="radio" name="plan" value="ext"' + (order.plan === 'ext' ? ' checked' : '') + '><span><b>Расширенная страница — ' + PRICE_EXT + '</b><small>Всё, что вы добавили' + (extras.length ? ' (' + extras.join(', ') + ')' : '') + ', появится на странице: биография без ограничений, до ' + EXT_PHOTOS + ' фото, видео. И возможность попасть в мини-сериал проекта. Разовая оплата, без подписки.</small></span></label>';
     var total = (order.plan === 'ext' && !ext ? SUM_EXT : 0) + (order.plaque ? SUM_PLAQUE : 0);
@@ -547,7 +547,7 @@
         '<p>Ссылка и QR-код страницы. QR можно распечатать сразу.</p>' +
         '<div class="cr-done__btns"><a class="btn" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a><a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png" href="#">Скачать QR-код</a><a class="btn" id="qrsvg" download="qr-' + esc(p.id) + '-tablichka.svg" href="#">Для печати таблички (SVG)</a></div></div></div>' +
       '<div class="cr-order">' + plan +
-        ((order.plan === 'ext' || ext) ? '<label class="cr-opt cr-opt--serial' + (p.serial && p.serial.on ? ' is-on' : '') + '"><input type="checkbox" id="o-serial"' + (p.serial && p.serial.on ? ' checked' : '') + '><span><b>Предлагаю историю для мини-сериала помниобомне.рф</b><small>Мы читаем истории расширенных страниц и выбираем героев для мини-сериалов о подвигах и судьбах. Это возможность, а не обязательство: если выберем вашу историю — свяжемся до публикации. Отмечая, даю <a href="' + BASE + '/soglasie-serial/" target="_blank">согласие на использование истории, фото и видео в мини-сериале</a>.</small></span></label>' : '') +
+        ((order.plan === 'ext' || ext) ? '<label class="cr-opt cr-opt--serial' + (p.serial && p.serial.on ? ' is-on' : '') + '"><input type="checkbox" id="o-serial"' + (p.serial && p.serial.on ? ' checked' : '') + '><span><b>Предлагаю историю для мини-сериала помниобомне.рф</b><small>Мы читаем истории расширенных страниц и выбираем героев для мини-сериалов о подвигах и судьбах. Это возможность, а не обязательство: если выберем вашу историю — свяжемся до публикации. Отмечая, даю <a href="' + BASE + '/soglasie-serial/" target="_blank">согласие на использование истории, фото и видео в мини-сериале</a>.' + (CFG.serialsUrl ? ' <a href="' + esc(CFG.serialsUrl) + '" target="_blank" rel="noopener">Посмотреть наши мини-сериалы ›</a>' : '') + '</small></span></label>' : '') +
         '<label class="cr-opt cr-opt--plaque' + (order.plaque ? ' is-on' : '') + '"><input type="checkbox" id="o-plaque"' + (order.plaque ? ' checked' : '') + '><span><b>Именная QR-табличка — ' + PRICE_PLAQUE + '</b><small>Двухслойный акрил, УФ-печать, 2 таблички и 2 наклейки в подарочной коробке. Доставка СДЭК. <button type="button" class="linkbtn" id="plaque">Подробнее и фото</button></small></span></label>' +
         delivery + mail +
         '<div class="cr-total"><span>Итого</span><b>' + (total ? total.toLocaleString('ru-RU') + ' ₽' : '0 ₽') + '</b></div>' +
@@ -576,7 +576,7 @@
 
   function drawQR() {
     var q = $('#qr'); if (!q || !window.heartQR) return;
-    q.innerHTML = window.heartQR(pageUrl(cur.id));
+    q.innerHTML = window.heartQR(pageUrl(cur.id), { color: '#bb9174', bg: false });
     var dl = $('#qrdl');
     if (dl) window.heartQRpng(pageUrl(cur.id), 1200, function (png) { dl.href = png; });
     var sv = $('#qrsvg');   // белый SVG без фона, как макет таблички (для УФ-печати)
@@ -629,14 +629,14 @@
     };
     if (API) {
       pages.save(p).then(function () { return apiCall('POST', '/pages/' + p.id + '/order', body); }).then(done, function (e) { btn.disabled = false; btn.textContent = total ? 'Оплатить' : 'Опубликовать'; fail(e.message); });
-    } else {   // демо без сервера: оплата не проводится
-      if (total) { if (order.plan === 'ext') p.plan = 'extended'; p.demo = true; }
+    } else {   // демо без сервера: оплата не проводится и тариф НЕ меняется
+      if (total) {
+        btn.disabled = false; btn.textContent = 'Оплатить ' + total.toLocaleString('ru-RU') + ' ₽';
+        openModal('<h2 class="cr-modal__t">Демо: оплата не проводится</h2><p>На рабочем сайте здесь откроется оплата ЮKassa на ' + total.toLocaleString('ru-RU') + ' ₽. После оплаты расширенная включится автоматически. Посмотреть, как будет выглядеть расширенная страница, можно в превью справа — переключатель «Расширенная».</p>');
+        return;
+      }
       p.status = 'published';
-      store.put(p).then(function () {
-        if (total) openModal('<h2 class="cr-modal__t">Демо: оплата не проводится</h2><p>На рабочем сайте здесь откроется оплата ЮKassa на ' + total.toLocaleString('ru-RU') + ' ₽. Для просмотра считаем, что оплачено' + (order.plan === 'ext' ? ' — расширенная включена' : '') + (order.plaque ? ', табличка заказана' : '') + '.</p>');
-        else toast('Страница опубликована');
-        order.plan = isExt(p) ? 'ext' : 'free'; order.plaque = false; renderEditor();   // оплачено — заказ очищен
-      });
+      store.put(p).then(function () { toast('Страница опубликована'); renderEditor(); });
     }
   }
 
