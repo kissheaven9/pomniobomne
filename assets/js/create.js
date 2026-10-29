@@ -486,7 +486,30 @@
   }
 
   var pvAs = null;          // превью: 'free' | 'ext'
-  var order = { plan: null, plaque: false };
+  var order = { plan: null, plaque: false, promo: null };
+
+  /* ---------- промокод партнёра: вводится в заказе или приходит ссылкой /sozdat/?promo=КОД ---------- */
+  var DEMO_PROMOS = { 'ТЕСТ': { partner: 'Тестовый партнёр', discount: 10 } };   // только демо без сервера
+  var promoDraft = '';
+  function promoNorm(s) { return String(s || '').trim().toUpperCase().replace(/\s+/g, ''); }
+  try {
+    var urlPromo = new URLSearchParams(location.search).get('promo');
+    if (urlPromo) localStorage.setItem('pomni_promo', promoNorm(urlPromo));
+    promoDraft = localStorage.getItem('pomni_promo') || '';
+  } catch (e) {}
+  function checkPromo(code) {
+    code = promoNorm(code);
+    if (!/^[A-ZА-ЯЁ0-9-]{3,30}$/.test(code)) return Promise.reject(new Error('Проверьте промокод: буквы и цифры, от 3 знаков'));
+    if (API) return apiCall('GET', '/promo?code=' + encodeURIComponent(code));
+    var d = DEMO_PROMOS[code];
+    return d ? Promise.resolve({ code: code, partner: d.partner, discount: d.discount }) : Promise.reject(new Error('Такого промокода нет'));
+  }
+  function orderSum(p) {
+    var base = (order.plan === 'ext' && !isExt(p) ? SUM_EXT : 0) + (order.plaque ? SUM_PLAQUE : 0);
+    var disc = order.promo && order.promo.discount ? Math.floor(base * order.promo.discount / 100) : 0;
+    return { base: base, disc: disc, total: base - disc };
+  }
+  function rub(n) { return n.toLocaleString('ru-RU') + ' ₽'; }
 
   function renderEditor() {
     var p = cur, ext = isExt(p), len = bioLen(p);
@@ -560,7 +583,10 @@
       ? '<div class="cr-opt is-on"><b>Расширенная страница подключена</b><small>Оплата получена — на странице всё, что вы добавили.</small></div>'
       : '<label class="cr-opt' + (order.plan === 'free' ? ' is-on' : '') + '"><input type="radio" name="plan" value="free"' + (order.plan === 'free' ? ' checked' : '') + '><span><b>Бесплатная страница — 0 ₽</b><small>ФИО, даты, портрет, место захоронения, биография до ' + FREE_BIO + ' знаков, родственники, QR-код.</small></span></label>' +
         '<label class="cr-opt' + (order.plan === 'ext' ? ' is-on' : '') + '"><input type="radio" name="plan" value="ext"' + (order.plan === 'ext' ? ' checked' : '') + '><span><b>Расширенная страница — ' + PRICE_EXT + '</b><small>Всё, что вы добавили' + (extras.length ? ' (' + extras.join(', ') + ')' : '') + ', появится на странице: биография без ограничений, до ' + EXT_PHOTOS + ' фото, видео. И возможность попасть в мини-сериал проекта. Разовая оплата, без подписки.</small></span></label>';
-    var total = (order.plan === 'ext' && !ext ? SUM_EXT : 0) + (order.plaque ? SUM_PLAQUE : 0);
+    var sum = orderSum(p), total = sum.total;
+    var promo = order.promo
+      ? '<div class="cr-promo is-ok"><p>Промокод <b>' + esc(order.promo.code) + '</b>' + (order.promo.partner ? ' · ' + esc(order.promo.partner) : '') + (order.promo.discount ? ' — скидка ' + order.promo.discount + '%' : ' принят') + '</p><button type="button" class="linkbtn" id="o-promo-x">Убрать</button></div>'
+      : '<div class="cr-promo"><label for="o-promo">Промокод партнёра <small>— если вам его дали</small></label><div class="cr-promo__row"><input id="o-promo" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" value="' + esc(promoDraft) + '"><button type="button" class="btn" id="o-promo-go">Применить</button></div><p class="field__err" id="o-promo-err" hidden></p></div>';
     var delivery = order.plaque ? '<div class="cr-deliv"><h3>Доставка СДЭК</h3>' +
         field('o-name', 'Получатель (ФИО)', 'autocomplete="name"') + field('o-phone', 'Телефон', 'type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00"') +
         '<div class="cr-grid2">' + field('o-city', 'Город', 'autocomplete="address-level2"') + field('o-addr', 'Пункт выдачи СДЭК или адрес', 'placeholder="Например: ул. Ленина, 1 (ПВЗ)"') + '</div></div>' : '';
@@ -571,8 +597,9 @@
       '<div class="cr-order">' + plan +
         ((order.plan === 'ext' || ext) ? '<label class="cr-opt cr-opt--serial' + (p.serial && p.serial.on ? ' is-on' : '') + '"><input type="checkbox" id="o-serial"' + (p.serial && p.serial.on ? ' checked' : '') + '><span><b>Предлагаю историю для мини-сериала помниобомне.рф</b><small>Мы читаем истории расширенных страниц и выбираем героев для мини-сериалов о подвигах и судьбах. Это возможность, а не обязательство: если выберем вашу историю — свяжемся до публикации. Отмечая, даю <a href="' + BASE + '/soglasie-serial/" target="_blank">согласие на использование истории, фото и видео в мини-сериале</a>.' + (CFG.serialsUrl ? ' <a href="' + esc(CFG.serialsUrl) + '" target="_blank" rel="noopener">Посмотреть наши мини-сериалы ›</a>' : '') + '</small></span></label>' : '') +
         '<label class="cr-opt cr-opt--plaque' + (order.plaque ? ' is-on' : '') + '"><input type="checkbox" id="o-plaque"' + (order.plaque ? ' checked' : '') + '><span><b>Именная QR-табличка — ' + PRICE_PLAQUE + '</b><small>Двухслойный акрил, УФ-печать, 2 таблички и 2 наклейки в подарочной коробке. Доставка СДЭК. <button type="button" class="linkbtn" id="plaque">Подробнее и фото</button></small></span></label>' +
-        delivery + mail +
-        '<div class="cr-total"><span>Итого</span><b>' + (total ? total.toLocaleString('ru-RU') + ' ₽' : '0 ₽') + '</b></div>' +
+        delivery + promo + mail +
+        (sum.disc ? '<div class="cr-disc"><span>Скидка по промокоду</span><span>−' + rub(sum.disc) + '</span></div>' : '') +
+        '<div class="cr-total"><span>Итого</span><b>' + rub(total) + '</b></div>' +
         '<button type="button" class="btn btn--solid cr-pay" id="o-go">' + (total ? 'Оплатить ' + total.toLocaleString('ru-RU') + ' ₽' : (p.status === 'published' ? 'Страница опубликована — обновить' : 'Опубликовать бесплатно')) + '</button>' +
         '<p class="field__err" id="o-err" hidden></p>' +
       '</div>' +
@@ -614,6 +641,20 @@
       sr.closest('.cr-opt').classList.toggle('is-on', sr.checked);
       toast(sr.checked ? 'История предложена для мини-сериала' : 'Предложение для мини-сериала снято');
     });
+    var pin = $('#o-promo'), pgo = $('#o-promo-go'), px = $('#o-promo-x');
+    var applyPromo = function () {
+      var er = $('#o-promo-err'); er.hidden = true; promoDraft = pin.value;
+      if (!promoNorm(pin.value)) { er.hidden = false; er.textContent = 'Введите промокод'; pin.focus(); return; }
+      pgo.disabled = true;
+      checkPromo(pin.value).then(function (r) {
+        order.promo = r; try { localStorage.setItem('pomni_promo', r.code); } catch (e) {}
+        refreshOrder(); toast('Промокод применён');
+      }, function (e) { pgo.disabled = false; er.hidden = false; er.textContent = e.status === 404 ? 'Такого промокода нет' : e.message; pin.focus(); });
+    };
+    if (pgo) pgo.addEventListener('click', applyPromo);
+    if (pin) pin.addEventListener('input', function () { promoDraft = pin.value; });
+    if (pin) pin.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); applyPromo(); } });
+    if (px) px.addEventListener('click', function () { order.promo = null; promoDraft = ''; try { localStorage.removeItem('pomni_promo'); } catch (e) {} refreshOrder(); });
     var more = $('#plaque'); if (more) more.addEventListener('click', function (e) { e.preventDefault(); plaqueModal(); });
     var ph = $('#o-phone'); if (ph) ph.addEventListener('input', function () { ph.value = ph.value.replace(/[^\d+()\- ]/g, ''); });
     $('#o-go').addEventListener('click', function () { checkout(p); });
@@ -628,7 +669,7 @@
     var fail = function (m, el) { err.hidden = false; err.textContent = m; if (el) el.focus(); };
     err.hidden = true;
     if (!p.lastName || !p.firstName) return fail('Заполните фамилию и имя в разделе «Основное»', $('#e-last'));
-    var total = (order.plan === 'ext' && !isExt(p) ? SUM_EXT : 0) + (order.plaque ? SUM_PLAQUE : 0);
+    var total = orderSum(p).total;
     var delivery = {};
     if (order.plaque) {
       var need = [['o-name', 'получателя'], ['o-phone', 'телефон'], ['o-city', 'город'], ['o-addr', 'пункт выдачи СДЭК']];
@@ -641,7 +682,7 @@
       delivery.email = em.value.trim();
     }
     btn.disabled = true; btn.textContent = total ? 'Переходим к оплате…' : 'Публикуем…';
-    var body = { plan: order.plan === 'ext' ? 'extended' : 'free', plaque: order.plaque, delivery: delivery };
+    var body = { plan: order.plan === 'ext' ? 'extended' : 'free', plaque: order.plaque, delivery: delivery, promo: order.promo ? order.promo.code : '' };
     var done = function (r) {
       if (r && r.payUrl) { location.href = r.payUrl; return; }
       if (r && r.published) { p.status = 'published'; toast('Страница опубликована'); refreshOrder(); $('#saved').textContent = 'Опубликована · сохранено'; return; }
@@ -657,7 +698,7 @@
         openModal('<h2 class="cr-modal__t">Демо: оплата не проводится</h2><p>На рабочем сайте здесь откроется оплата ЮKassa на ' + total.toLocaleString('ru-RU') + ' ₽. После оплаты расширенная включится автоматически. Посмотреть, как будет выглядеть расширенная страница, можно в превью справа — переключатель «Расширенная».</p>');
         return;
       }
-      p.status = 'published';
+      p.status = 'published'; if (order.promo) p.promo = order.promo.code;
       store.put(p).then(function () { toast('Страница опубликована'); renderEditor(); });
     }
   }

@@ -784,3 +784,30 @@ div.cr-opt { display: block; cursor: default; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 @media print { .top, .tabs, .hero__actions, .foot, .place__map, .cta { display: none !important; } .section { break-inside: avoid; } }
+
+/* ---------- Промокод партнёра (заказ в конструкторе) ---------- */
+.cr-promo { display: grid; gap: 8px; }
+.cr-promo label { font-size: 15px; font-weight: 600; }
+.cr-promo label small { font-weight: 400; color: var(--ink-soft); }
+.cr-promo__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.cr-promo__row input { min-width: 0; height: 46px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); background: var(--white); font: 500 16px var(--sans); color: var(--ink); text-transform: uppercase; letter-spacing: .04em; }
+.cr-promo__row input:focus { outline: none; border-color: var(--bronze); }
+.cr-promo.is-ok { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 12px 16px; border-radius: var(--radius-sm); background: var(--cream); border: 1px solid var(--line); }
+.cr-promo.is-ok p { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.cr-disc { display: flex; justify-content: space-between; font-size: 15px; color: var(--bronze); }
+
+/* ---------- 404: пустая страница = незаписанная история ---------- */
+.nf { position: relative; overflow: clip; background: var(--cream); padding: 48px 0 64px; }
+.nf::after { content: ''; position: absolute; right: -40px; top: 8px; width: 260px; height: 124px; background: url(/pomniobomne/assets/img/branch.webp) right top / contain no-repeat; pointer-events: none; }
+.nf__in { position: relative; z-index: 1; max-width: 760px; text-align: center; }
+.nf__digits { display: flex; justify-content: center; align-items: center; gap: clamp(4px, 2vw, 16px); margin: 0 0 8px; font: 700 clamp(120px, 26vw, 220px)/.85 var(--display); color: var(--bronze-brand); }
+.nf__fp { display: block; width: .62em; height: .72em; background: var(--bronze); -webkit-mask: url(/pomniobomne/assets/img/fingerprint.webp) center / contain no-repeat; mask: url(/pomniobomne/assets/img/fingerprint.webp) center / contain no-repeat; }
+.nf__kicker { margin: 0 0 8px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.nf__title { margin: 0 0 12px; font: 700 clamp(40px, 7vw, 64px)/.95 var(--display); letter-spacing: .02em; text-transform: uppercase; }
+.nf__lead { margin: 0 auto 20px; max-width: 52ch; color: var(--ink-soft); }
+.nf__text { margin: 0 auto 16px; max-width: 58ch; font-size: 17px; }
+.nf__quote { margin: 0 auto 28px; font: 700 clamp(24px, 4vw, 32px)/1.1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--bronze); }
+.nf__search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; max-width: 560px; margin: 0 auto 28px; text-align: left; }
+.nf__search .search input { height: 46px; }
+.nf__btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; padding-top: 18px; }
+@media (max-width: 480px) { .nf__btns .btn { flex: 1 1 100%; } .nf::after { width: 170px; height: 80px; right: -30px; } }
