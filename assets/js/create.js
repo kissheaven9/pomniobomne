@@ -95,7 +95,7 @@
       return Promise.resolve();
     }
   };
-  var EDITABLE = ['lastName', 'firstName', 'patronymic', 'born', 'died', 'epitaph', 'bio', 'burial', 'videos', 'relatives'];
+  var EDITABLE = ['serial', 'lastName', 'firstName', 'patronymic', 'born', 'died', 'epitaph', 'bio', 'burial', 'videos', 'relatives'];
   var pages = {
     all: function () { return API ? apiCall('GET', '/pages') : store.all(); },
     get: function (id) { return API ? apiCall('GET', '/pages/' + id) : store.get(id); },
@@ -537,7 +537,7 @@
     var plan = ext
       ? '<div class="cr-opt is-on"><b>Расширенная страница</b> — оплачена. На странице всё, что вы добавили.</div>'
       : '<label class="cr-opt' + (order.plan === 'free' ? ' is-on' : '') + '"><input type="radio" name="plan" value="free"' + (order.plan === 'free' ? ' checked' : '') + '><span><b>Бесплатная страница — 0 ₽</b><small>ФИО, даты, портрет, место захоронения, биография до ' + FREE_BIO + ' знаков, родственники, QR-код.</small></span></label>' +
-        '<label class="cr-opt' + (order.plan === 'ext' ? ' is-on' : '') + '"><input type="radio" name="plan" value="ext"' + (order.plan === 'ext' ? ' checked' : '') + '><span><b>Расширенная страница — ' + PRICE_EXT + '</b><small>Всё, что вы добавили' + (extras.length ? ' (' + extras.join(', ') + ')' : '') + ', появится на странице: биография без ограничений, до ' + EXT_PHOTOS + ' фото, видео. Разовая оплата, без подписки.</small></span></label>';
+        '<label class="cr-opt' + (order.plan === 'ext' ? ' is-on' : '') + '"><input type="radio" name="plan" value="ext"' + (order.plan === 'ext' ? ' checked' : '') + '><span><b>Расширенная страница — ' + PRICE_EXT + '</b><small>Всё, что вы добавили' + (extras.length ? ' (' + extras.join(', ') + ')' : '') + ', появится на странице: биография без ограничений, до ' + EXT_PHOTOS + ' фото, видео. И возможность попасть в мини-сериал проекта. Разовая оплата, без подписки.</small></span></label>';
     var total = (order.plan === 'ext' && !ext ? SUM_EXT : 0) + (order.plaque ? SUM_PLAQUE : 0);
     var delivery = order.plaque ? '<div class="cr-deliv"><h3>Доставка СДЭК</h3>' +
         field('o-name', 'Получатель (ФИО)', 'autocomplete="name"') + field('o-phone', 'Телефон', 'type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00"') +
@@ -547,6 +547,7 @@
         '<p>Ссылка и QR-код страницы. QR можно распечатать сразу.</p>' +
         '<div class="cr-done__btns"><a class="btn" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a><a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png" href="#">Скачать QR-код</a><a class="btn" id="qrsvg" download="qr-' + esc(p.id) + '-tablichka.svg" href="#">Для печати таблички (SVG)</a></div></div></div>' +
       '<div class="cr-order">' + plan +
+        ((order.plan === 'ext' || ext) ? '<label class="cr-opt cr-opt--serial' + (p.serial && p.serial.on ? ' is-on' : '') + '"><input type="checkbox" id="o-serial"' + (p.serial && p.serial.on ? ' checked' : '') + '><span><b>Предлагаю историю для мини-сериала помниобомне.рф</b><small>Мы читаем истории расширенных страниц и выбираем героев для мини-сериалов о подвигах и судьбах. Это возможность, а не обязательство: если выберем вашу историю — свяжемся до публикации. Отмечая, даю <a href="' + BASE + '/soglasie-serial/" target="_blank">согласие на использование истории, фото и видео в мини-сериале</a>.</small></span></label>' : '') +
         '<label class="cr-opt cr-opt--plaque' + (order.plaque ? ' is-on' : '') + '"><input type="checkbox" id="o-plaque"' + (order.plaque ? ' checked' : '') + '><span><b>Именная QR-табличка — ' + PRICE_PLAQUE + '</b><small>Двухслойный акрил, УФ-печать, 2 таблички и 2 наклейки в подарочной коробке. Доставка СДЭК. <button type="button" class="linkbtn" id="plaque">Подробнее и фото</button></small></span></label>' +
         delivery + mail +
         '<div class="cr-total"><span>Итого</span><b>' + (total ? total.toLocaleString('ru-RU') + ' ₽' : '0 ₽') + '</b></div>' +
@@ -586,6 +587,11 @@
     var p = cur;
     $$('input[name="plan"]').forEach(function (r) { r.addEventListener('change', function () { order.plan = r.value; pvAs = r.value; refreshOrder(); updatePreview(); syncSwitch(); }); });
     var pl = $('#o-plaque'); if (pl) pl.addEventListener('change', function () { order.plaque = pl.checked; refreshOrder(); });
+    var sr = $('#o-serial'); if (sr) sr.addEventListener('change', function () {
+      p.serial = sr.checked ? { on: true, at: new Date().toISOString() } : null; save(true);
+      sr.closest('.cr-opt').classList.toggle('is-on', sr.checked);
+      toast(sr.checked ? 'История предложена для мини-сериала' : 'Предложение для мини-сериала снято');
+    });
     var more = $('#plaque'); if (more) more.addEventListener('click', function (e) { e.preventDefault(); plaqueModal(); });
     var ph = $('#o-phone'); if (ph) ph.addEventListener('input', function () { ph.value = ph.value.replace(/[^\d+()\- ]/g, ''); });
     $('#o-go').addEventListener('click', function () { checkout(p); });

@@ -692,6 +692,7 @@ a.tree__node:hover { border-color: var(--bronze); box-shadow: var(--shadow); }
 .cr-opt.is-on { border-color: var(--bronze); background: var(--cream); }
 .cr-opt input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--bronze); }
 .cr-opt b { display: block; font-size: 16px; }
+.cr-opt small a { color: var(--bronze); }
 .cr-opt small { display: block; margin-top: 4px; font-size: 14px; line-height: 1.5; color: var(--ink-soft); }
 div.cr-opt { display: block; cursor: default; }
 .cr-deliv { display: grid; gap: 12px; padding: 16px; border-radius: var(--radius-sm); background: var(--paper); border: 1px solid var(--line); }
