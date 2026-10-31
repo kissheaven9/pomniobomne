@@ -884,3 +884,10 @@ div.cr-opt { display: block; cursor: default; }
 }
 @media (max-width: 767px) { .foot img { display: block; margin-left: auto; margin-right: auto; } }
 .cr-note { margin: -4px 0 0; font-size: 14px; color: var(--ink-soft); }
+/* телефон: «Спросить» и кнопки в карточках стоимости — по центру */
+@media (max-width: 1199px) {
+  .tl-how__askrow { text-align: center; }
+  .tl-how__ask { display: flex; width: max-content; margin-left: auto; margin-right: auto; }
+  .tl-how__asktext { margin-left: auto; margin-right: auto; }
+  .h-price .tl-btn { align-self: center; }
+}
