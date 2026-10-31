@@ -816,16 +816,15 @@ div.cr-opt { display: block; cursor: default; }
 @media (min-width: 1200px) { .tl-partners__t { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
 @media (max-width: 1199px) {
   /* первый экран: заголовок и текст по центру, телефон слева, табличка справа, кнопки в ряд под картинками */
-  .tl-hero .tl-ab { grid-template-columns: 1.45fr 1fr; column-gap: 14px; }
+  .tl-hero .tl-ab { grid-template-columns: 2fr 1fr; column-gap: 12px; }
   .tl-hero__title { grid-row: 1; text-align: center; font-size: clamp(38px, 11.5vw, 64px); line-height: 1.05; }
   .tl-hero__text { grid-row: 2; text-align: center; margin: 16px auto 0; max-width: 34ch; line-height: 1.6; }
-  .tl-hero__phone { grid-column: 1; grid-row: 3 / span 2; margin-top: 24px; }
+  .tl-hero__phone { grid-column: 1; grid-row: 3 / span 2; margin-top: 24px; width: 118%; max-width: none; z-index: 0; }
   .tl-hero__tile, .tl-hero__plaque { grid-column: 2; }
   .tl-hero__tile { grid-row: 3; margin-top: 24px; }
   .tl-hero__plaque { grid-row: 4; }
-  .tl-hero__btns { grid-row: 5; justify-content: center; flex-wrap: nowrap; gap: 10px; margin-top: 24px; }
-  .tl-hero__btns .tl-btn--xl { height: 50px; padding: 0 18px; font-size: 14px; flex: 1 1 0; min-width: 0; }
-  .tl-hero__btns .tl-hero__ex { order: -1; }
+  .tl-hero__btns { grid-row: 5; flex-direction: column; gap: 10px; margin-top: 24px; }
+  .tl-hero__btns .tl-btn--xl { width: 100%; height: 54px; font-size: 16px; }
 
   /* о проекте: компактные карточки, кнопка и мессенджеры в одну строку */
   .tl-about__c1, .tl-about__c2 { padding: 26px 26px; }
@@ -854,12 +853,13 @@ div.cr-opt { display: block; cursor: default; }
 
   /* профиль: картинка сразу под заголовком, кнопка по центру */
   .tl-profile .tl-ab { display: flex; flex-direction: column; }
-  .tl-profile__phones { order: 1; margin: 16px 0 8px; }
+  .tl-profile__t { font-size: clamp(38px, 12vw, 56px); }
+  .tl-profile__phones { order: 1; margin: 8px 0 4px -13.5%; width: 112%; max-width: none; }
   .tl-profile__text { order: 2; }
   .tl-profile__btn { order: 3; align-self: center; }
 
-  /* заголовки по центру, как на Тильде */
-  .tl-tariffs .tl-h, .tl-geo__t, .tl-partners__t { text-align: center; }
+  /* все заголовки по центру */
+  .tl .tl-h, .tl-exs__t { text-align: center; }
 
   /* поиск: заголовок по центру, поле и кнопка во всю ширину друг под другом */
   .tl-search__t { margin: 0 auto; text-align: center; font-size: 30px; line-height: 1.25; }
