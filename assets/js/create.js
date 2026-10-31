@@ -489,7 +489,7 @@
   var order = { plan: null, plaque: false, promo: null };
 
   /* ---------- промокод партнёра: вводится в заказе или приходит ссылкой /sozdat/?promo=КОД ---------- */
-  var DEMO_PROMOS = { 'ТЕСТ': { partner: 'Тестовый партнёр', discount: 10 } };   // только демо без сервера
+  var DEMO_PROMOS = { 'ТЕСТ': { partner: 'Тестовый партнёр', discount: 10 }, 'ПАРТНЕР': { partner: 'Тестовый партнёр (оплачивает сам)', discount: 100 } };   // только демо без сервера
   var promoDraft = '';
   function promoNorm(s) { return String(s || '').trim().toUpperCase().replace(/\s+/g, ''); }
   try {
@@ -600,7 +600,8 @@
         delivery + promo + mail +
         (sum.disc ? '<div class="cr-disc"><span>Скидка по промокоду</span><span>−' + rub(sum.disc) + '</span></div>' : '') +
         '<div class="cr-total"><span>Итого</span><b>' + rub(total) + '</b></div>' +
-        '<button type="button" class="btn btn--solid cr-pay" id="o-go">' + (total ? 'Оплатить ' + total.toLocaleString('ru-RU') + ' ₽' : (p.status === 'published' ? 'Страница опубликована — обновить' : 'Опубликовать бесплатно')) + '</button>' +
+        '<button type="button" class="btn btn--solid cr-pay" id="o-go">' + (total ? 'Оплатить ' + total.toLocaleString('ru-RU') + ' ₽' : sum.base ? 'Оформить по промокоду' : (p.status === 'published' ? 'Страница опубликована — обновить' : 'Опубликовать бесплатно')) + '</button>' +
+        (!total && sum.base ? '<p class="cr-note">Заказ оплачивает партнёр — от вас оплата не нужна.</p>' : '') +
         '<p class="field__err" id="o-err" hidden></p>' +
       '</div>' +
       '<button type="button" class="linkbtn cr-delpage" id="delpage">Удалить страницу</button>';
@@ -669,7 +670,7 @@
     var fail = function (m, el) { err.hidden = false; err.textContent = m; if (el) el.focus(); };
     err.hidden = true;
     if (!p.lastName || !p.firstName) return fail('Заполните фамилию и имя в разделе «Основное»', $('#e-last'));
-    var total = orderSum(p).total;
+    var sum = orderSum(p), total = sum.total, byPartner = !total && sum.base > 0;   // 100 % по промокоду
     var delivery = {};
     if (order.plaque) {
       var need = [['o-name', 'получателя'], ['o-phone', 'телефон'], ['o-city', 'город'], ['o-addr', 'пункт выдачи СДЭК']];
@@ -681,11 +682,17 @@
       var em = $('#o-email'); if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(em.value.trim())) return fail('Укажите почту для чека', em);
       delivery.email = em.value.trim();
     }
-    btn.disabled = true; btn.textContent = total ? 'Переходим к оплате…' : 'Публикуем…';
+    btn.disabled = true; btn.textContent = total ? 'Переходим к оплате…' : byPartner ? 'Оформляем…' : 'Публикуем…';
     var body = { plan: order.plan === 'ext' ? 'extended' : 'free', plaque: order.plaque, delivery: delivery, promo: order.promo ? order.promo.code : '' };
     var done = function (r) {
       if (r && r.payUrl) { location.href = r.payUrl; return; }
-      if (r && r.published) { p.status = 'published'; toast('Страница опубликована'); refreshOrder(); $('#saved').textContent = 'Опубликована · сохранено'; return; }
+      if (r && r.published) {
+        p.status = 'published';
+        if (byPartner) { if (body.plan === 'extended') p.plan = 'extended'; order.plaque = false; }
+        toast(byPartner ? 'Оформлено по промокоду партнёра' : 'Страница опубликована');
+        if (byPartner) renderEditor(); else { refreshOrder(); $('#saved').textContent = 'Опубликована · сохранено'; }
+        return;
+      }
       // оплата ещё не подключена (нет ключей ЮKassa) — заказ сохранён
       btn.disabled = false; btn.textContent = 'Оплатить ' + total.toLocaleString('ru-RU') + ' ₽';
       openModal('<h2 class="cr-modal__t">Заказ сохранён</h2><p>Онлайн-оплата подключается. Заказ №' + esc(r && r.order || '') + ' на ' + total.toLocaleString('ru-RU') + ' ₽ сохранён — мы пришлём ссылку на оплату на ' + esc(delivery.email || '') + '.</p>');
@@ -699,6 +706,7 @@
         return;
       }
       p.status = 'published'; if (order.promo) p.promo = order.promo.code;
+      if (byPartner) { if (body.plan === 'extended') p.plan = 'extended'; order.plaque = false; toast('Оформлено по промокоду партнёра'); }
       store.put(p).then(function () { toast('Страница опубликована'); renderEditor(); });
     }
   }

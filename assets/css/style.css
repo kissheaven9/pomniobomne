@@ -811,3 +811,76 @@ div.cr-opt { display: block; cursor: default; }
 .nf__search .search input { height: 46px; }
 .nf__btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; padding-top: 18px; }
 @media (max-width: 480px) { .nf__btns .btn { flex: 1 1 100%; } .nf::after { width: 170px; height: 80px; right: -30px; } }
+
+/* ---------- Главная на телефоне — как на Тильде (сверка скриншотов 375px, 31.10.2026) ---------- */
+@media (min-width: 1200px) { .tl-partners__t { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
+@media (max-width: 1199px) {
+  /* первый экран: заголовок и текст по центру, телефон слева, табличка справа, кнопки в ряд под картинками */
+  .tl-hero .tl-ab { grid-template-columns: 1.45fr 1fr; column-gap: 14px; }
+  .tl-hero__title { grid-row: 1; text-align: center; font-size: clamp(38px, 11.5vw, 64px); line-height: 1.05; }
+  .tl-hero__text { grid-row: 2; text-align: center; margin: 16px auto 0; max-width: 34ch; line-height: 1.6; }
+  .tl-hero__phone { grid-column: 1; grid-row: 3 / span 2; margin-top: 24px; }
+  .tl-hero__tile, .tl-hero__plaque { grid-column: 2; }
+  .tl-hero__tile { grid-row: 3; margin-top: 24px; }
+  .tl-hero__plaque { grid-row: 4; }
+  .tl-hero__btns { grid-row: 5; justify-content: center; flex-wrap: nowrap; gap: 10px; margin-top: 24px; }
+  .tl-hero__btns .tl-btn--xl { height: 50px; padding: 0 18px; font-size: 14px; flex: 1 1 0; min-width: 0; }
+  .tl-hero__btns .tl-hero__ex { order: -1; }
+
+  /* о проекте: компактные карточки, кнопка и мессенджеры в одну строку */
+  .tl-about__c1, .tl-about__c2 { padding: 26px 26px; }
+  .tl-about__c1 p, .tl-about__c2 p { font-size: 14px; line-height: 1.55; }
+  .tl-about__btn.tl-btn--xl { height: 50px; padding: 0 24px; font-size: 14px; margin-right: 8px; }
+  .tl-about__wa img, .tl-about__tg img { width: 50px; height: 50px; }
+  .tl-about__wa { margin-right: 6px; }
+
+  /* как это работает: карточки «лесенкой» от края, номер на краю карточки, фото с цитатой между 2 и 3 шагом */
+  .tl-how .tl-ab { display: grid; grid-template-columns: 120px minmax(0, 1fr); column-gap: 16px; }
+  .tl-how .tl-ab > *, .tl-how .tl-step { grid-column: 1 / -1; }
+  .tl-how__t { order: 0; }
+  .tl-steps { display: contents; }
+  .tl-step { margin: 0 0 18px; min-height: 0; }
+  .tl-step--1 { order: 1; } .tl-step--2 { order: 2; } .tl-step--3 { order: 4; } .tl-step--4 { order: 5; }
+  .tl-how .tl-ab > .tl-how__live { order: 3; grid-column: 1; margin: 6px 0 24px; }
+  .tl-how .tl-ab > .tl-how__quote { order: 3; grid-column: 2; align-self: center; margin: 0 0 18px; }
+  .tl-how__side { order: 6; }
+  .tl-step--1, .tl-step--3 { margin-left: -16px; margin-right: 46px; padding: 26px 56px 26px 34px; border-radius: 0 8px 8px 0; }
+  .tl-step--2, .tl-step--4 { margin-left: 46px; margin-right: -16px; padding: 26px 30px 26px 52px; border-radius: 8px 0 0 8px; }
+  .tl-step__n { top: 50%; transform: translateY(-50%); width: 54px; height: 54px; border-radius: 50%; box-shadow: 0 0 0 7px rgba(255, 255, 255, .55); }
+  .tl-step--1 .tl-step__n, .tl-step--3 .tl-step__n { left: auto; right: -27px; }
+  .tl-step--2 .tl-step__n, .tl-step--4 .tl-step__n { left: -27px; }
+  .tl-step--4 .tl-step__bg { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 8px 0 0 8px; }
+  .tl-step p { font-size: 13px; line-height: 1.6; }
+
+  /* профиль: картинка сразу под заголовком, кнопка по центру */
+  .tl-profile .tl-ab { display: flex; flex-direction: column; }
+  .tl-profile__phones { order: 1; margin: 16px 0 8px; }
+  .tl-profile__text { order: 2; }
+  .tl-profile__btn { order: 3; align-self: center; }
+
+  /* заголовки по центру, как на Тильде */
+  .tl-tariffs .tl-h, .tl-geo__t, .tl-partners__t { text-align: center; }
+
+  /* поиск: заголовок по центру, поле и кнопка во всю ширину друг под другом */
+  .tl-search__t { margin: 0 auto; text-align: center; font-size: 30px; line-height: 1.25; }
+  .tl-search__sub { text-align: center; font-size: 16px; }
+  .tl-search__form { flex-direction: column; }
+  .tl-search__btn { width: 100%; }
+
+  /* партнёры: тёмный заголовок вместо белой бегущей строки */
+  .tl-partners__words { display: none; }
+  .tl-partners { padding-top: 40px; }
+
+  /* география и оплата: компактнее */
+  .tl-geo__t { font-size: 44px; }
+  .tl-pay__c { padding: 26px 28px; }
+  .tl-pay__c img { height: 30px; }
+  .tl-pay__c p { font-size: 14px; line-height: 1.6; margin-top: 14px; }
+}
+/* подвал на телефоне — по центру и со скруглением сверху, как на Тильде */
+@media (max-width: 767px) {
+  .foot { text-align: center; border-radius: 30px 30px 0 0; }
+  .foot ul { justify-items: center; }
+}
+@media (max-width: 767px) { .foot img { display: block; margin-left: auto; margin-right: auto; } }
+.cr-note { margin: -4px 0 0; font-size: 14px; color: var(--ink-soft); }
