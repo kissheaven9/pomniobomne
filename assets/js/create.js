@@ -596,7 +596,7 @@
         '<div class="cr-done__btns"><a class="btn" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a><a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png" href="#">Скачать QR-код</a><a class="btn" id="qrsvg" download="qr-' + esc(p.id) + '-tablichka.svg" href="#">Для печати таблички (SVG)</a></div></div></div>' +
       '<div class="cr-order">' + plan +
         ((order.plan === 'ext' || ext) ? '<label class="cr-opt cr-opt--serial' + (p.serial && p.serial.on ? ' is-on' : '') + '"><input type="checkbox" id="o-serial"' + (p.serial && p.serial.on ? ' checked' : '') + '><span><b>Предлагаю историю для мини-сериала помниобомне.рф</b><small>Мы читаем истории расширенных страниц и выбираем героев для мини-сериалов о подвигах и судьбах. Это возможность, а не обязательство: если выберем вашу историю — свяжемся до публикации. Отмечая, даю <a href="' + BASE + '/soglasie-serial/" target="_blank">согласие на использование истории, фото и видео в мини-сериале</a>.' + (CFG.serialsUrl ? ' <a href="' + esc(CFG.serialsUrl) + '" target="_blank" rel="noopener">Посмотреть наши мини-сериалы ›</a>' : '') + '</small></span></label>' : '') +
-        '<label class="cr-opt cr-opt--plaque' + (order.plaque ? ' is-on' : '') + '"><input type="checkbox" id="o-plaque"' + (order.plaque ? ' checked' : '') + '><span><b>Именная QR-табличка — ' + PRICE_PLAQUE + '</b><small>Двухслойный акрил, УФ-печать, 2 таблички и 2 наклейки в подарочной коробке. Доставка СДЭК. <button type="button" class="linkbtn" id="plaque">Подробнее и фото</button></small></span></label>' +
+        '<label class="cr-opt cr-opt--plaque' + (order.plaque ? ' is-on' : '') + '"><input type="checkbox" id="o-plaque"' + (order.plaque ? ' checked' : '') + '><span><b>Именная QR-табличка — ' + PRICE_PLAQUE + '</b><small>Двухслойный акрил, УФ-печать, 2 таблички и 2 наклейки в фирменной коробке. Доставка СДЭК. <button type="button" class="linkbtn" id="plaque">Подробнее и фото</button></small></span></label>' +
         delivery + promo + mail +
         (sum.disc ? '<div class="cr-disc"><span>Скидка по промокоду</span><span>−' + rub(sum.disc) + '</span></div>' : '') +
         '<div class="cr-total"><span>Итого</span><b>' + rub(total) + '</b></div>' +
@@ -610,10 +610,10 @@
   function plaqueModal() {
     var img = function (src, alt) { return '<img src="' + BASE + src + '" alt="' + alt + '" loading="lazy">'; };
     openModal('<h2 class="cr-modal__t">Именная QR-табличка — ' + PRICE_PLAQUE + '</h2>' +
-      '<div class="cr-plq">' + img('/assets/img/home/plaque.webp', 'QR-табличка на памятнике') + img('/assets/img/home/grave-2.webp', 'Комплект в подарочной коробке') + img('/assets/img/home/grave-1.webp', 'Табличка в руке у памятника') + '</div>' +
+      '<div class="cr-plq">' + img('/assets/img/home/plaque.webp', 'QR-табличка на памятнике') + img('/assets/img/home/grave-2.webp', 'Комплект в фирменной коробке') + img('/assets/img/home/grave-1.webp', 'Табличка в руке у памятника') + '</div>' +
       (CFG.plaqueVideo ? '<div class="cr-plq__video"><iframe src="' + esc(CFG.plaqueVideo) + '" title="Распаковка таблички" loading="lazy" allowfullscreen></iframe></div>' : '') +
       '<p class="cr-plq__text">Табличка 6×6 см из <b>двухслойного акрила с УФ-печатью</b> — с QR-кодом этой страницы в сердце и именем. Не выцветает, не боится дождя и мороза.</p>' +
-      '<p class="cr-plq__text"><b>В комплекте:</b> 2 таблички и 2 наклейки в красивой подарочной коробке. Изготовим и отправим СДЭК.</p>' +
+      '<p class="cr-plq__text"><b>В комплекте:</b> 2 таблички и 2 наклейки в аккуратной фирменной коробке. Изготовим и отправим СДЭК.</p>' +
       '<button type="button" class="btn btn--solid" id="plq-add">' + (order.plaque ? 'Табличка уже в заказе' : 'Добавить в заказ') + '</button>');
     $('#plq-add').addEventListener('click', function () { order.plaque = true; closeModal(); refreshOrder(); var o = $('#s-done'); if (o) o.scrollIntoView({ behavior: 'smooth' }); });
   }
