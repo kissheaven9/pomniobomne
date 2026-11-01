@@ -590,7 +590,7 @@
     var delivery = order.plaque ? '<div class="cr-deliv"><h3>Доставка СДЭК</h3>' +
         field('o-name', 'Получатель (ФИО)', 'autocomplete="name"') + field('o-phone', 'Телефон', 'type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00"') +
         '<div class="cr-grid2">' + field('o-city', 'Город', 'autocomplete="address-level2"') + field('o-addr', 'Пункт выдачи СДЭК или адрес', 'placeholder="Например: ул. Ленина, 1 (ПВЗ)"') + '</div></div>' : '';
-    var mail = total ? field('o-email', 'Почта для чека', 'type="email" autocomplete="email" value="' + esc(ME || '') + '"') : '';
+    var mail = total && CFG.payOnline ? field('o-email', 'Почта для чека', 'type="email" autocomplete="email" value="' + esc(ME || '') + '"') : '';
     return '<div class="cr-done"><div class="cr-qr" id="qr"></div><div>' +
         '<p>Ссылка и QR-код страницы. QR можно распечатать сразу.</p>' +
         '<div class="cr-done__btns"><a class="btn" id="open" href="' + BASE + '/stranica/?id=' + encodeURIComponent(p.id) + '">Открыть страницу</a><a class="btn" id="qrdl" download="qr-' + esc(p.id) + '.png" href="#">Скачать QR-код</a><a class="btn" id="qrsvg" download="qr-' + esc(p.id) + '-tablichka.svg" href="#">Для печати таблички (SVG)</a></div></div></div>' +
@@ -600,8 +600,9 @@
         delivery + promo + mail +
         (sum.disc ? '<div class="cr-disc"><span>Скидка по промокоду</span><span>−' + rub(sum.disc) + '</span></div>' : '') +
         '<div class="cr-total"><span>Итого</span><b>' + rub(total) + '</b></div>' +
-        '<button type="button" class="btn btn--solid cr-pay" id="o-go">' + (total ? 'Оплатить ' + total.toLocaleString('ru-RU') + ' ₽' : sum.base ? 'Оформить по промокоду' : (p.status === 'published' ? 'Страница опубликована — обновить' : 'Опубликовать бесплатно')) + '</button>' +
+        '<button type="button" class="btn btn--solid cr-pay" id="o-go">' + (total ? (CFG.payOnline ? 'Оплатить ' : 'Оформить заказ · ') + total.toLocaleString('ru-RU') + ' ₽' : sum.base ? 'Оформить по промокоду' : (p.status === 'published' ? 'Страница опубликована — обновить' : 'Опубликовать бесплатно')) + '</button>' +
         (!total && sum.base ? '<p class="cr-note">Заказ оплачивает партнёр — от вас оплата не нужна.</p>' : '') +
+        (total && !CFG.payOnline ? '<p class="cr-note">Заказ оформляется в мессенджере: напишите нам в WhatsApp, Telegram или MAX — пришлём ссылку на оплату.</p>' : '') +
         '<p class="field__err" id="o-err" hidden></p>' +
       '</div>' +
       '<button type="button" class="linkbtn cr-delpage" id="delpage">Удалить страницу</button>';
@@ -678,6 +679,7 @@
       if ($('#o-phone').value.replace(/\D/g, '').length < 10) return fail('Проверьте телефон', $('#o-phone'));
       delivery = { name: $('#o-name').value.trim(), phone: $('#o-phone').value.trim(), city: $('#o-city').value.trim(), address: $('#o-addr').value.trim() };
     }
+    if (total && !CFG.payOnline) return messengerOrder(p, sum, delivery);
     if (total) {
       var em = $('#o-email'); if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(em.value.trim())) return fail('Укажите почту для чека', em);
       delivery.email = em.value.trim();
@@ -709,6 +711,36 @@
       if (byPartner) { if (body.plan === 'extended') p.plan = 'extended'; order.plaque = false; toast('Оформлено по промокоду партнёра'); }
       store.put(p).then(function () { toast('Страница опубликована'); renderEditor(); });
     }
+  }
+
+  /* ---------- платный заказ через мессенджер (пока онлайн-оплата не подключена) ---------- */
+  function messengerOrder(p, sum, delivery) {
+    var lines = ['Здравствуйте! Хочу оформить заказ на помниобомне.рф:'];
+    if (order.plan === 'ext' && !isExt(p)) lines.push('— Расширенная страница — ' + rub(SUM_EXT));
+    if (order.plaque) lines.push('— Именная QR-табличка — ' + rub(SUM_PLAQUE));
+    if (order.promo) lines.push('Промокод: ' + order.promo.code + (order.promo.discount ? ' (скидка ' + order.promo.discount + '%)' : ''));
+    lines.push('Итого: ' + rub(sum.total));
+    lines.push('Страница: ' + (fullName(p) || 'без имени') + ' — ' + pageUrl(p.id));
+    if (order.plaque) lines.push('Доставка СДЭК: ' + [delivery.name, delivery.phone, delivery.city, delivery.address].join(', '));
+    var text = lines.join('\n');
+    var copy = function () {
+      var done = function () { toast('Текст заказа скопирован — вставьте его в чат'); };
+      try { navigator.clipboard.writeText(text).then(done, function () { $('#ord-text').select(); document.execCommand('copy'); done(); }); }
+      catch (e) { $('#ord-text').select(); document.execCommand('copy'); done(); }
+    };
+    openModal('<h2 class="cr-modal__t">Оформим заказ в мессенджере</h2>' +
+      '<p>Напишите нам удобным способом — подтвердим заказ и пришлём ссылку на оплату. Текст заказа уже готов:</p>' +
+      '<textarea id="ord-text" class="cr-ordtext" rows="7" readonly>' + esc(text) + '</textarea>' +
+      '<div class="cr-msg">' +
+        '<a class="btn btn--solid" id="ord-wa" href="' + esc(msgLink('wa', text)) + '" target="_blank" rel="noopener">WhatsApp</a>' +
+        '<a class="btn" id="ord-tg" href="' + esc(CFG.tg) + '" target="_blank" rel="noopener">Telegram</a>' +
+        (CFG.max ? '<a class="btn" id="ord-max" href="' + esc(CFG.max) + '" target="_blank" rel="noopener">MAX</a>' : '') +
+        '<button type="button" class="btn" id="ord-copy">Скопировать текст</button>' +
+      '</div>' +
+      '<p class="cr-note">В Telegram и MAX текст копируется сам — просто вставьте его в чат.</p>');
+    $('#ord-copy').addEventListener('click', copy);
+    ['#ord-tg', '#ord-max'].forEach(function (id) { var a = $(id); if (a) a.addEventListener('click', copy); });
+    var btn = $('#o-go'); if (btn) { btn.disabled = false; }
   }
 
   var PV_TARGET = { 's-main': null, 's-bio': 'bio', 's-place': 'mesto', 's-photos': 'foto', 's-video': 'video', 's-rel': 'semya', 's-done': 'qr' };

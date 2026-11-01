@@ -891,3 +891,6 @@ div.cr-opt { display: block; cursor: default; }
   .tl-how__asktext { margin-left: auto; margin-right: auto; }
   .h-price .tl-btn { align-self: center; }
 }
+.cr-ordtext { width: 100%; margin: 4px 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); font: 400 14px/1.55 var(--sans); color: var(--ink); resize: none; }
+.cr-msg { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+@media (max-width: 480px) { .cr-msg .btn { flex: 1 1 calc(50% - 4px); } }
