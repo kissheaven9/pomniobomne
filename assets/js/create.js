@@ -603,6 +603,7 @@
         '<button type="button" class="btn btn--solid cr-pay" id="o-go">' + (total ? (CFG.payOnline ? 'Оплатить ' : 'Оформить заказ · ') + total.toLocaleString('ru-RU') + ' ₽' : sum.base ? 'Оформить по промокоду' : (p.status === 'published' ? 'Страница опубликована — обновить' : 'Опубликовать бесплатно')) + '</button>' +
         (!total && sum.base ? '<p class="cr-note">Заказ оплачивает партнёр — от вас оплата не нужна.</p>' : '') +
         (total && !CFG.payOnline ? '<p class="cr-note">Заказ оформляется в мессенджере: напишите нам в WhatsApp, Telegram или MAX — пришлём ссылку на оплату.</p>' : '') +
+        (sum.base ? '<p class="cr-note">Оформляя заказ, вы принимаете условия <a href="' + BASE + '/oferta/" target="_blank">публичной оферты</a>.</p>' : '') +
         '<p class="field__err" id="o-err" hidden></p>' +
       '</div>' +
       '<button type="button" class="linkbtn cr-delpage" id="delpage">Удалить страницу</button>';
