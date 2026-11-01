@@ -1,13 +1,13 @@
 /* помниобомне.рф — конструктор страниц памяти (/sozdat/) и просмотр созданной страницы (/stranica/).
    Сервера пока нет: страницы хранятся в IndexedDB этого браузера (DEMO). Онлайн-оплата не подключена —
    расширенная оформляется через мессенджер, в демо её можно включить, чтобы посмотреть возможности.
-   Тарифы (решение Ольги 28.10): базовая — бесплатно (1 фото, биография ≤ 500 знаков), расширенная — 2990 ₽,
+   Тарифы (решение Ольги 28.10): базовая — бесплатно (1 фото, биография ≤ 250 знаков), расширенная — 2990 ₽,
    изготовление именной QR-таблички под заказ — 2990 ₽ отдельно (услуга, не перепродажа). */
 (function () {
   'use strict';
   var BASE = (document.documentElement.getAttribute('data-base') || '');
   var CFG = window.POMNI || {};
-  var FREE_BIO = 500, EXT_PHOTOS = 200, EPITAPH_MAX = 140;
+  var FREE_BIO = 250, EXT_PHOTOS = 200, EPITAPH_MAX = 140;
   var PRICE_EXT = '2990 ₽', PRICE_PLAQUE = '2990 ₽', SUM_EXT = 2990, SUM_PLAQUE = 2990;   // табличка 2990 — решение Ольги 29.10
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
